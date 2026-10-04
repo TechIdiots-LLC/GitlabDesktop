@@ -6,6 +6,11 @@
 
 ### 🐞 Bug fixes
 - _...Add new stuff here..._
+
+## 0.1.2
+### ✨ Features and improvements
+
+### 🐞 Bug fixes
 - Dragging the dividers between the lists and the diff now resizes them on Windows (the cursor changed, but the layout didn't update), and a divider's width is only saved after an actual drag.
 - Commits in History no longer show as "Not yet pushed" after pushing them.
 

@@ -16,13 +16,15 @@ OUT_DIR="$2"
 PROJECT=GitLabDesktop/GitLabDesktop.csproj
 VOLUME_NAME="GitLab Desktop"
 
-sign_args=()
+# Never left empty: macOS's bash 3.2 treats "${empty_array[@]}" as an unbound variable under set -u.
 if [ -n "${MACOS_SIGNING_IDENTITY:-}" ]; then
   echo "Signing with: $MACOS_SIGNING_IDENTITY"
   # Hardened runtime is required for notarization; the entitlements allow the .NET runtime's JIT.
   sign_args=(-p:EnableCodeSigning=true "-p:CodesignKey=$MACOS_SIGNING_IDENTITY" -p:UseHardenedRuntime=true)
 else
   echo "WARNING: MACOS_SIGNING_IDENTITY is not set; the app will be ad-hoc signed and not notarized."
+  # Don't let the build look for a signing certificate; the bundle is ad-hoc signed below instead.
+  sign_args=(-p:EnableCodeSigning=false)
 fi
 
 # A build, not a publish: publish would wrap the app in an installer .pkg, and a drag-to-Applications .dmg is the

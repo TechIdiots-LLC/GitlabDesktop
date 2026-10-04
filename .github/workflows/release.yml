@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Get version and check GitHub releases
         id: check
@@ -58,10 +58,10 @@ jobs:
     if: ${{ needs.release-check.outputs.published == 'false' }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up .NET 10
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
@@ -80,10 +80,10 @@ jobs:
         rid: [win-x64, win-arm64]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up .NET 10
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
@@ -135,7 +135,7 @@ jobs:
           ./build/Sign-Files.ps1 -Path $setup
 
       - name: Upload build artifact (${{ matrix.rid }})
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-artifact-windows-${{ matrix.rid }}
           path: |
@@ -167,12 +167,12 @@ jobs:
             "present=true" >> $env:GITHUB_OUTPUT
           }
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: steps.keystore.outputs.present == 'true'
 
       - name: Set up .NET 10
         if: steps.keystore.outputs.present == 'true'
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
@@ -221,7 +221,7 @@ jobs:
 
       - name: Upload build artifact
         if: steps.keystore.outputs.present == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-artifact-android
           path: GitLabDesktop-v${{ needs.release-check.outputs.version }}-android-preview.apk
@@ -237,10 +237,10 @@ jobs:
       MACOS_CERT_P12_BASE64: ${{ secrets.MACOS_CERT_P12_BASE64 }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up .NET 10
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
@@ -288,7 +288,7 @@ jobs:
         run: bash build/build-macos.sh "v${{ needs.release-check.outputs.version }}" .
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-artifact-macos
           path: GitLabDesktop-v${{ needs.release-check.outputs.version }}-macos.dmg
@@ -302,10 +302,10 @@ jobs:
     environment: release
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: release-artifact-*
           path: ./artifacts

@@ -21,7 +21,7 @@ jobs:
       label: ${{ steps.label.outputs.label }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build the label
         id: label
@@ -37,10 +37,10 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up .NET 10
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
@@ -49,7 +49,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results
           path: GitLabDesktop.Core.Tests/TestResults/*.trx
@@ -65,10 +65,10 @@ jobs:
         rid: [win-x64, win-arm64]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up .NET 10
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
@@ -101,7 +101,7 @@ jobs:
             -DestinationPath "./GitLabDesktop-${{ needs.label.outputs.label }}-${{ matrix.rid }}.zip"
 
       - name: Upload ${{ matrix.rid }} app
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ci-app-windows-${{ matrix.rid }}
           path: GitLabDesktop-${{ needs.label.outputs.label }}-${{ matrix.rid }}.zip
@@ -113,10 +113,10 @@ jobs:
     needs: label
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up .NET 10
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
@@ -148,7 +148,7 @@ jobs:
           Copy-Item $apk.FullName -Destination "./GitLabDesktop-${{ needs.label.outputs.label }}-android-debug-signed.apk"
 
       - name: Upload Android APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ci-app-android
           path: GitLabDesktop-${{ needs.label.outputs.label }}-android-debug-signed.apk
@@ -161,10 +161,10 @@ jobs:
     needs: label
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up .NET 10
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
@@ -193,7 +193,7 @@ jobs:
         run: bash build/build-macos.sh "${{ needs.label.outputs.label }}" .
 
       - name: Upload macOS app
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ci-app-macos
           path: GitLabDesktop-${{ needs.label.outputs.label }}-macos.dmg

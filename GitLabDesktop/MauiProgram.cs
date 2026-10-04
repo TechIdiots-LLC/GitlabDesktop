@@ -38,6 +38,7 @@ public static class MauiProgram
             c.DefaultRequestHeaders.UserAgent.ParseAdd("GitLabDesktop/0.1");
         });
         services.AddSingleton<HostingRegistry>();
+        services.AddSingleton<GitSignInService>();
         services.AddSingleton<DialogService>();
         services.AddSingleton<PlatformActions>();
 

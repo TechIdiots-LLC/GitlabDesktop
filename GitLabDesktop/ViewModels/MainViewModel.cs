@@ -18,6 +18,7 @@ public sealed partial class MainViewModel : ObservableObject
     readonly AppSettings _settings;
     readonly GitRunner _git;
     readonly HostingRegistry _hosting;
+    readonly GitSignInService _signIn;
     readonly DialogService _dialogs;
     readonly PlatformActions _platform;
     readonly IServiceProvider _services;
@@ -27,12 +28,13 @@ public sealed partial class MainViewModel : ObservableObject
     DateTimeOffset? _lastFetched;
     string? _defaultBranch;
 
-    public MainViewModel(AppSettings settings, GitRunner git, HostingRegistry hosting, DialogService dialogs,
+    public MainViewModel(AppSettings settings, GitRunner git, HostingRegistry hosting, GitSignInService signIn, DialogService dialogs,
         PlatformActions platform, IServiceProvider services)
     {
         _settings = settings;
         _git = git;
         _hosting = hosting;
+        _signIn = signIn;
         _dialogs = dialogs;
         _platform = platform;
         _services = services;
@@ -384,9 +386,27 @@ public sealed partial class MainViewModel : ObservableObject
         if (IsBusy) return;
         IsBusy = true;
         BusyText = busyText;
+        bool signedIn = false;
         try
         {
-            await action();
+            // A login git doesn't have (or that was rejected) prompts for one and retries, until it works or is cancelled.
+            while (true)
+            {
+                try
+                {
+                    await action();
+                    break;
+                }
+                catch (GitException ex) when (GitSignInService.IsAuthenticationFailure(ex) && Repo is { } repo)
+                {
+                    BusyText = "Waiting for sign-in…";
+                    var outcome = await _signIn.PromptAsync(await repo.GetRemoteUrlAsync(RemoteName), ex.Message);
+                    if (outcome == SignInOutcome.Cancelled) break;
+                    if (outcome == SignInOutcome.NotApplicable) throw;
+                    signedIn = true;
+                    BusyText = busyText;
+                }
+            }
         }
         catch (GitException ex)
         {
@@ -410,6 +430,8 @@ public sealed partial class MainViewModel : ObservableObject
             BusyText = null;
         }
         if (refresh) await RefreshAsync();
+        // A token entered at sign-in may also have set up the API account (merge requests, CI status).
+        if (signedIn) await LoadRemoteAsync();
     }
 
     async Task<bool> RequireRemoteAsync()

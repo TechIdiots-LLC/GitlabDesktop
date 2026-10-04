@@ -25,6 +25,7 @@ public sealed partial class SettingsViewModel : ModalViewModel<bool>
         _editorCommand = settings.EditorCommand;
         _gitExecutable = settings.GitExecutable;
         Accounts.CollectionChanged += (_, _) => OnPropertyChanged(nameof(CanAddGitHub));
+        foreach (var login in settings.SavedGitLogins.OrderBy(l => l.Scope)) GitLogins.Add(login);
     }
 
     protected override bool CancelledResult => false;
@@ -56,6 +57,20 @@ public sealed partial class SettingsViewModel : ModalViewModel<bool>
     }
 
     void RemoveAccount(AccountViewModel account) => Accounts.Remove(account);
+
+    // ── Saved git sign-ins (from the sign-in dialog) ─────────────────────────
+
+    public ObservableCollection<AppSettings.GitLogin> GitLogins { get; } = [];
+    public bool HasGitLogins => GitLogins.Count > 0;
+
+    /// <summary>Forgets immediately (not on Save): the stored secret is removed from secure storage.</summary>
+    [RelayCommand]
+    void ForgetGitLogin(AppSettings.GitLogin login)
+    {
+        _settings.ForgetGitLogin(login);
+        GitLogins.Remove(login);
+        OnPropertyChanged(nameof(HasGitLogins));
+    }
 
     [RelayCommand]
     async Task TestGit()

@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:GitLabDesktop.ViewModels"
+             xmlns:services="clr-namespace:GitLabDesktop.Services"
              x:Class="GitLabDesktop.Views.SettingsPage"
              x:DataType="vm:SettingsViewModel"
              BackgroundColor="{AppThemeBinding Light={StaticResource PaneLight}, Dark={StaticResource PaneDark}}">
@@ -49,6 +50,24 @@
                             </Border>
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+                <VerticalStackLayout Spacing="4" IsVisible="{Binding HasGitLogins}" Margin="0,4,0,0">
+                    <Label Text="Saved git sign-ins" Style="{StaticResource SectionHeader}" />
+                    <Label Text="Logins entered when git asked to sign in. They take precedence over account tokens for git."
+                           Style="{StaticResource SecondaryText}" />
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding GitLogins}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="services:AppSettings+GitLogin">
+                                <Grid ColumnDefinitions="*,Auto" Padding="0,2">
+                                    <Label Text="{Binding Display}" VerticalOptions="Center" LineBreakMode="MiddleTruncation" />
+                                    <Button Grid.Column="1" Text="Forget" Style="{StaticResource SecondaryButton}" Padding="8,2"
+                                            Command="{Binding ForgetGitLoginCommand, Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, x:DataType=vm:SettingsViewModel}"
+                                            CommandParameter="{Binding .}" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
                 </VerticalStackLayout>
 
                 <HorizontalStackLayout Spacing="8">

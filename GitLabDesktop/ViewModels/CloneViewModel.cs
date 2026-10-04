@@ -18,13 +18,15 @@ public sealed partial class CloneViewModel : ModalViewModel<string?>
 {
     readonly AppSettings _settings;
     readonly GitRunner _git;
+    readonly GitSignInService _signIn;
     CancellationTokenSource? _searchCts;
     CancellationTokenSource? _cloneCts;
 
-    public CloneViewModel(AppSettings settings, HostingRegistry hosting, GitRunner git)
+    public CloneViewModel(AppSettings settings, HostingRegistry hosting, GitRunner git, GitSignInService signIn)
     {
         _settings = settings;
         _git = git;
+        _signIn = signIn;
         _baseDirectory = settings.RepositoriesDirectory;
         _useSsh = settings.CloneWithSsh;
         foreach (var (account, service) in hosting.Services.Where(s => s.Service.IsConfigured))
@@ -123,7 +125,21 @@ public sealed partial class CloneViewModel : ModalViewModel<string?>
         _cloneCts = new CancellationTokenSource();
         try
         {
-            await GitRepository.CloneAsync(_git, Url.Trim(), LocalPath, _cloneCts.Token);
+            while (true)
+            {
+                try
+                {
+                    await GitRepository.CloneAsync(_git, Url.Trim(), LocalPath, _cloneCts.Token);
+                    break;
+                }
+                catch (GitException ex) when (GitSignInService.IsAuthenticationFailure(ex))
+                {
+                    // A private repository: ask for a login and try again, or stop if the user cancels.
+                    var outcome = await _signIn.PromptAsync(Url.Trim(), ex.Message);
+                    if (outcome == SignInOutcome.Cancelled) return;
+                    if (outcome == SignInOutcome.NotApplicable) throw;
+                }
+            }
             _settings.CloneWithSsh = UseSsh;
             Complete(LocalPath);
         }

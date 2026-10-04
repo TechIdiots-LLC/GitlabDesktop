@@ -137,6 +137,8 @@
         </MenuBarItem>
 
         <MenuBarItem Text="Help">
+            <MenuFlyoutItem Text="Check for updates…" Clicked="OnCheckForUpdatesClicked" />
+            <MenuFlyoutSeparator />
             <MenuFlyoutItem Text="Git command log" Command="{Binding ShowCommandLogCommand}" />
             <MenuFlyoutItem Text="About GitLab Desktop" Clicked="OnAboutClicked" />
         </MenuBarItem>

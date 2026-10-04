@@ -13,6 +13,7 @@ A GitHub Desktop-style git client for self-hosted GitLab servers and GitHub, bui
 - **Repositories folder** (Options): existing checkouts in it are added to the repository list automatically. It defaults to `Documents\GitLab`, with a one-click option for GitHub Desktop's `Documents\GitHub`.
 - Switching branches with uncommitted changes offers to leave them on the current branch (as a stash) or bring them along. Stashes left this way are offered back when you return to that branch.
 - The app refreshes whenever its window regains focus.
+- **Updates**: the app checks this project's GitLab releases (GitHub as a fallback) at startup and from Help › Check for updates. A copy installed with the setup program downloads the new installer, checks its signature when the app is signed, and updates in place (`setup.exe /S /UPDATE`), restarting afterwards. Portable zip copies, macOS and Android open the download instead.
 
 ## GitLab and GitHub
 

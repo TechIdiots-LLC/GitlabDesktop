@@ -21,6 +21,8 @@ public sealed partial class SettingsViewModel : ModalViewModel<bool>
         _repositoriesDirectory = settings.RepositoriesDirectory;
         _autoAddRepositories = settings.AutoAddRepositories;
         _cloneWithSsh = settings.CloneWithSsh;
+        _autoCheckUpdates = AppUpdater.AutoCheck;
+        _includePrereleases = AppUpdater.IncludePrereleases;
         _ = UpdateFoundRepositoriesAsync();
         _editorCommand = settings.EditorCommand;
         _gitExecutable = settings.GitExecutable;
@@ -34,6 +36,8 @@ public sealed partial class SettingsViewModel : ModalViewModel<bool>
     [ObservableProperty] private bool _autoAddRepositories;
     [ObservableProperty] private string? _foundRepositoriesText;
     [ObservableProperty] private bool _cloneWithSsh;
+    [ObservableProperty] private bool _autoCheckUpdates;
+    [ObservableProperty] private bool _includePrereleases;
     [ObservableProperty] private string _editorCommand;
     [ObservableProperty] private string _gitExecutable;
     [ObservableProperty] private string? _gitTestResult;
@@ -62,6 +66,8 @@ public sealed partial class SettingsViewModel : ModalViewModel<bool>
 
     public ObservableCollection<AppSettings.GitLogin> GitLogins { get; } = [];
     public bool HasGitLogins => GitLogins.Count > 0;
+
+    public string CurrentVersionText => $"Installed version: {AppUpdater.CurrentVersion}. Help › Check for updates checks now.";
 
     /// <summary>Forgets immediately (not on Save): the stored secret is removed from secure storage.</summary>
     [RelayCommand]
@@ -178,6 +184,8 @@ public sealed partial class SettingsViewModel : ModalViewModel<bool>
         _settings.RepositoriesDirectory = RepositoriesDirectory.Trim();
         _settings.AutoAddRepositories = AutoAddRepositories;
         _settings.CloneWithSsh = CloneWithSsh;
+        AppUpdater.AutoCheck = AutoCheckUpdates;
+        AppUpdater.IncludePrereleases = IncludePrereleases;
         _settings.EditorCommand = EditorCommand.Trim();
         _settings.GitExecutable = GitExecutable;
         Complete(true);

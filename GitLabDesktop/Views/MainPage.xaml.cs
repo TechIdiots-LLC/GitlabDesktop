@@ -1,5 +1,6 @@
 using System.Reflection;
 using GitLabDesktop.Core.Git;
+using GitLabDesktop.Services;
 using GitLabDesktop.ViewModels;
 
 namespace GitLabDesktop.Views;
@@ -8,15 +9,28 @@ public partial class MainPage : ContentPage
 {
     readonly MainViewModel _vm;
 
-    public MainPage(MainViewModel vm)
+    readonly AppUpdater _updater;
+
+    public MainPage(MainViewModel vm, AppUpdater updater)
     {
         InitializeComponent();
         BindingContext = _vm = vm;
+        _updater = updater;
         vm.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(MainViewModel.IsDiffExpanded)) ApplyDiffExpanded(vm.IsDiffExpanded);
         };
+        Loaded += OnFirstLoaded;
     }
+
+    // Offer a newer release at startup; quietly does nothing when offline or turned off in Options.
+    async void OnFirstLoaded(object? sender, EventArgs e)
+    {
+        Loaded -= OnFirstLoaded;
+        await _updater.CheckOnStartupAsync();
+    }
+
+    async void OnCheckForUpdatesClicked(object? sender, EventArgs e) => await _updater.CheckAsync(interactive: true);
 
     // Widths of the list columns while the diff is expanded, to put back afterwards.
     GridLength _leftWidth, _historyFilesWidth;

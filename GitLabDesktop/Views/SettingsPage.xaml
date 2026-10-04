@@ -106,6 +106,19 @@
 
                 <BoxView Style="{StaticResource Separator}" Margin="0,8" />
 
+                <Label Text="Updates" Style="{StaticResource SectionHeader}" />
+                <Grid ColumnDefinitions="Auto,*">
+                    <CheckBox IsChecked="{Binding AutoCheckUpdates}" />
+                    <Label Grid.Column="1" Text="Check for a new version when the app starts" VerticalOptions="Center" />
+                </Grid>
+                <Grid ColumnDefinitions="Auto,*">
+                    <CheckBox IsChecked="{Binding IncludePrereleases}" />
+                    <Label Grid.Column="1" Text="Include pre-releases (e.g. 0.2.0-rc.1)" VerticalOptions="Center" />
+                </Grid>
+                <Label Text="{Binding CurrentVersionText}" Style="{StaticResource SecondaryText}" />
+
+                <BoxView Style="{StaticResource Separator}" Margin="0,8" />
+
                 <Label Text="Tools" Style="{StaticResource SectionHeader}" />
                 <Label Text="External editor command (receives the folder or file path)" Style="{StaticResource SecondaryText}" />
                 <Entry Text="{Binding EditorCommand}" Placeholder="code" />

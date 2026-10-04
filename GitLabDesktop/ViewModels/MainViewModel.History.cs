@@ -1,0 +1,186 @@
+using System.Collections.ObjectModel;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using GitLabDesktop.Core.Git;
+
+namespace GitLabDesktop.ViewModels;
+
+// History tab: commit list, commit details, and the commit context menu.
+public sealed partial class MainViewModel
+{
+    const int HistoryPageSize = 100;
+
+    bool _historyComplete;
+    bool _loadingMoreHistory;
+
+    public ObservableCollection<CommitInfo> Commits { get; } = [];
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSelectedCommit), nameof(SelectedCommitMeta))]
+    private CommitInfo? _selectedCommit;
+
+    [ObservableProperty] private IReadOnlyList<FileChange>? _commitFiles;
+    [ObservableProperty] private FileChange? _selectedCommitFile;
+    [ObservableProperty] private IReadOnlyList<DiffLine>? _commitDiffLines;
+    [ObservableProperty] private string? _commitDiffMessage;
+
+    public bool HasSelectedCommit => SelectedCommit is not null;
+
+    public string? SelectedCommitMeta => SelectedCommit is { } c
+        ? $"{c.AuthorName}  •  {c.AuthorDate.LocalDateTime:g}  •  {c.ShortSha}" + (c.IsMerge ? "  •  merge" : "")
+        : null;
+
+    async Task LoadHistoryAsync()
+    {
+        if (Repo is null) return;
+        var selectedSha = SelectedCommit?.Sha;
+        var commits = await Repo.GetLogAsync(0, HistoryPageSize);
+        await MarkUnpushedAsync(commits);
+
+        Commits.Clear();
+        foreach (var c in commits) Commits.Add(c);
+        _historyComplete = commits.Count < HistoryPageSize;
+        SelectedCommit = Commits.FirstOrDefault(c => c.Sha == selectedSha) ?? Commits.FirstOrDefault();
+    }
+
+    async Task MarkUnpushedAsync(IReadOnlyList<CommitInfo> commits)
+    {
+        if (Repo is null || commits.Count == 0) return;
+        if (Status?.Upstream is { } upstream)
+        {
+            var unpushed = await Repo.GetUnpushedShasAsync(upstream);
+            foreach (var c in commits) c.IsUnpushed = unpushed.Contains(c.Sha);
+        }
+        else if (Status?.Branch is not null)
+        {
+            foreach (var c in commits) c.IsUnpushed = true;   // unpublished branch
+        }
+    }
+
+    [RelayCommand]
+    async Task LoadMoreHistory()
+    {
+        if (Repo is null || _historyComplete || _loadingMoreHistory) return;
+        _loadingMoreHistory = true;
+        try
+        {
+            var more = await Repo.GetLogAsync(Commits.Count, HistoryPageSize);
+            await MarkUnpushedAsync(more);
+            foreach (var c in more) Commits.Add(c);
+            _historyComplete = more.Count < HistoryPageSize;
+        }
+        finally
+        {
+            _loadingMoreHistory = false;
+        }
+    }
+
+    partial void OnSelectedCommitChanged(CommitInfo? value) => _ = LoadCommitFilesAsync(value);
+
+    async Task LoadCommitFilesAsync(CommitInfo? commit)
+    {
+        CommitFiles = null;
+        CommitDiffLines = null;
+        CommitDiffMessage = null;
+        if (commit is null || Repo is null) return;
+        try
+        {
+            var files = await Repo.GetCommitFilesAsync(commit);
+            if (SelectedCommit != commit) return;
+            CommitFiles = files;
+            SelectedCommitFile = files.FirstOrDefault();
+            if (files.Count == 0) CommitDiffMessage = "No file changes in this commit.";
+        }
+        catch (Exception ex)
+        {
+            CommitDiffMessage = ex.Message;
+        }
+    }
+
+    partial void OnSelectedCommitFileChanged(FileChange? value) => _ = LoadCommitDiffAsync(value);
+
+    async Task LoadCommitDiffAsync(FileChange? file)
+    {
+        if (file is null || SelectedCommit is not { } commit || Repo is null)
+        {
+            CommitDiffLines = null;
+            return;
+        }
+        try
+        {
+            var diff = await Repo.GetCommitDiffAsync(commit, file);
+            if (SelectedCommitFile != file) return;
+            ShowDiff(diff, lines => CommitDiffLines = lines, msg => CommitDiffMessage = msg);
+        }
+        catch (Exception ex)
+        {
+            CommitDiffLines = null;
+            CommitDiffMessage = ex.Message;
+        }
+    }
+
+    // ── Commit context menu ──────────────────────────────────────────────────
+
+    public async Task AmendCommitAsync(CommitInfo commit)
+    {
+        if (Repo is null) return;
+        if (commit.Sha != Status?.HeadSha)
+        {
+            await _dialogs.AlertAsync("Amend commit", "Only the most recent commit on the branch can be amended.");
+            return;
+        }
+        if (!commit.IsUnpushed &&
+            !await _dialogs.ConfirmAsync("Amend commit",
+                "This commit has already been pushed. Amending it rewrites history and will need a force push. Continue?", "Amend"))
+            return;
+
+        SetCommitMessage(await Repo.GetHeadMessageAsync());
+        IsAmending = true;
+        IsHistoryTab = false;
+    }
+
+    public async Task ResetToCommitAsync(CommitInfo commit)
+    {
+        if (!await _dialogs.ConfirmAsync("Reset to commit",
+                $"Reset the current branch to {commit.ShortSha}? Later commits are undone and their changes kept in the working tree.", "Reset"))
+            return;
+        await RunAsync("Resetting…", () => Repo!.ResetToAsync(commit.Sha));
+    }
+
+    public async Task CheckoutCommitAsync(CommitInfo commit)
+    {
+        if (!await _dialogs.ConfirmAsync("Checkout commit",
+                $"Check out {commit.ShortSha}? HEAD will be detached; create a branch to keep new commits.", "Checkout"))
+            return;
+        await RunAsync("Checking out…", () => Repo!.CheckoutCommitAsync(commit.Sha));
+    }
+
+    public Task RevertCommitAsync(CommitInfo commit) => RunAsync("Reverting…", () => Repo!.RevertAsync(commit));
+
+    public Task CreateBranchFromCommitAsync(CommitInfo commit) => NewBranchAsync(commit.Sha, $"from {commit.ShortSha}");
+
+    public async Task CreateTagAsync(CommitInfo commit)
+    {
+        var name = await _dialogs.PromptAsync("Create tag", $"Tag name for {commit.ShortSha}:", accept: "Create");
+        if (string.IsNullOrWhiteSpace(name)) return;
+        await RunAsync("Creating tag…", () => Repo!.CreateTagAsync(name.Trim(), commit.Sha));
+        await LoadHistoryAsync();
+    }
+
+    public async Task CherryPickCommitAsync(CommitInfo commit)
+    {
+        if (!await _dialogs.ConfirmAsync("Cherry-pick", $"Apply {commit.ShortSha} \"{commit.Summary}\" onto {BranchName}?", "Cherry-pick"))
+            return;
+        await RunAsync("Cherry-picking…", () => Repo!.CherryPickAsync(commit.Sha));
+    }
+
+    public Task CopyShaAsync(CommitInfo commit) => _platform.CopyAsync(commit.Sha);
+
+    public Task CopyTagAsync(CommitInfo commit)
+        => commit.Tags.Count > 0 ? _platform.CopyAsync(commit.Tags[0]) : Task.CompletedTask;
+
+    public async Task ViewCommitOnHostAsync(CommitInfo commit)
+    {
+        if (await RequireRemoteAsync()) await OpenLinkAsync(Remote!.CommitLink(commit.Sha));
+    }
+}

@@ -1,0 +1,200 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # One label for every artifact in the run, so a downloaded build says which commit it came from.
+  # Never claims to be a release: the run number and short SHA are always in the name.
+  label:
+    name: Compute artifact label
+    runs-on: ubuntu-latest
+    outputs:
+      label: ${{ steps.label.outputs.label }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the label
+        id: label
+        run: |
+          VERSION=$(grep -oP '<ApplicationDisplayVersion>\K[^<]+' GitLabDesktop/GitLabDesktop.csproj | head -1)
+          LABEL="v${VERSION}-ci${{ github.run_number }}-$(git rev-parse --short HEAD)"
+          echo "label=$LABEL" >> "$GITHUB_OUTPUT"
+          echo "Artifact label: $LABEL"
+
+  test:
+    name: Core tests
+    # Windows, like most users; the tests drive the git CLI against throwaway repositories.
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Run tests
+        run: dotnet test GitLabDesktop.Core.Tests/GitLabDesktop.Core.Tests.csproj -c Release --logger "trx;LogFileName=test-results.trx"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: GitLabDesktop.Core.Tests/TestResults/*.trx
+          retention-days: 7
+
+  build-windows:
+    name: Build Windows (${{ matrix.rid }})
+    runs-on: windows-latest
+    needs: label
+    strategy:
+      fail-fast: false
+      matrix:
+        rid: [win-x64, win-arm64]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore workloads
+        run: dotnet workload restore GitLabDesktop.sln
+
+      - name: Publish ${{ matrix.rid }}
+        # Same switches as release.yml, so a publish-only failure surfaces on a PR rather than during a release.
+        # No separate restore: a RID-less restore doesn't pull the runtime pack this publish needs (NETSDK1112).
+        # -p:UseMonoRuntime=false: this multi-target csproj otherwise resolves a Mono runtime pack for the Windows head,
+        # which doesn't exist (NU1101); an explicit RID is required to cross-build win-arm64 on an x64 runner.
+        # Self-contained .NET and Windows App SDK, so the artifact runs with nothing pre-installed. No PublishSingleFile:
+        # WinUI 3 doesn't support it, so the output is a folder, zipped below.
+        run: |
+          dotnet publish GitLabDesktop/GitLabDesktop.csproj `
+            -f net10.0-windows10.0.19041.0 `
+            -c Release `
+            -r ${{ matrix.rid }} `
+            --self-contained true `
+            -p:WindowsPackageType=None `
+            -p:UseMonoRuntime=false `
+            -p:WindowsAppSDKSelfContained=true `
+            --output ./publish/${{ matrix.rid }}
+
+      - name: Package ${{ matrix.rid }}
+        shell: pwsh
+        run: |
+          Compress-Archive `
+            -Path "./publish/${{ matrix.rid }}/*" `
+            -DestinationPath "./GitLabDesktop-${{ needs.label.outputs.label }}-${{ matrix.rid }}.zip"
+
+      - name: Upload ${{ matrix.rid }} app
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-app-windows-${{ matrix.rid }}
+          path: GitLabDesktop-${{ needs.label.outputs.label }}-${{ matrix.rid }}.zip
+          retention-days: 7
+
+  build-android:
+    name: Build Android (preview)
+    runs-on: windows-latest
+    needs: label
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore workloads
+        run: dotnet workload restore GitLabDesktop.sln
+
+      - name: Restore dependencies
+        run: dotnet restore GitLabDesktop.sln
+
+      - name: Publish Android APK (universal)
+        # Not signed with the release keystore: secrets are unavailable to pull requests from forks, and a CI build
+        # shouldn't carry the release signature. .NET Android falls back to a debug key that differs every run, so
+        # this APK installs on a clean device but won't upgrade over a release install.
+        # No -r: the csproj's <RuntimeIdentifiers> make one universal APK (arm64-v8a + x86_64).
+        run: |
+          dotnet publish GitLabDesktop/GitLabDesktop.csproj `
+            -f net10.0-android36.0 `
+            -c Release `
+            --output ./publish/android
+
+      - name: Rename APK
+        shell: pwsh
+        run: |
+          $apk = Get-ChildItem -Path "./publish/android" -Filter "*-Signed.apk" -Recurse | Select-Object -First 1
+          if (-not $apk) {
+            $apk = Get-ChildItem -Path "./publish/android" -Filter "*.apk" -Recurse | Select-Object -First 1
+          }
+          if (-not $apk) { throw "No APK found under ./publish/android" }
+          Copy-Item $apk.FullName -Destination "./GitLabDesktop-${{ needs.label.outputs.label }}-android-debug-signed.apk"
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-app-android
+          path: GitLabDesktop-${{ needs.label.outputs.label }}-android-debug-signed.apk
+          retention-days: 7
+
+  build-macos:
+    name: Build macOS
+    # The default Xcode on older runner images is too old for the .NET 10 Apple workloads.
+    runs-on: macos-26
+    needs: label
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore workloads
+        run: dotnet workload restore GitLabDesktop.sln
+
+      # Pick the newest stable Xcode rather than pinning one: the .NET Apple SDKs raise their minimum Xcode as they
+      # update. Only real app bundles that carry the macOS SDK; the image's X.Y.0 symlinks leave xcodebuild unable to
+      # find MacOSX.sdk (actool then fails with exit code 72). Betas are skipped.
+      - name: Select the newest stable Xcode
+        run: |
+          for XCODE in $(find /Applications -maxdepth 1 -type d -name 'Xcode_*.app' \
+                         | grep -vi beta | sort -Vr); do
+            if [ -d "$XCODE/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk" ]; then
+              echo "Selecting $XCODE"
+              sudo xcode-select -s "$XCODE"
+              xcodebuild -version
+              exit 0
+            fi
+            echo "Skipping $XCODE — no macOS SDK"
+          done
+          echo "::error::No Xcode with a macOS SDK found under /Applications"
+          exit 1
+
+      - name: Build and package (ad-hoc signed)
+        run: bash build/build-macos.sh "${{ needs.label.outputs.label }}" .
+
+      - name: Upload macOS app
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-app-macos
+          path: GitLabDesktop-${{ needs.label.outputs.label }}-macos.dmg
+          retention-days: 7

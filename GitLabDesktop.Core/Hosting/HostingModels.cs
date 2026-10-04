@@ -1,0 +1,62 @@
+namespace GitLabDesktop.Core.Hosting;
+
+/// <summary>Which kind of server hosts a repository.</summary>
+public enum HostingKind { Unknown, GitLab, GitHub }
+
+/// <summary>A server the user has an account on; used to recognise remotes whose hostname alone is ambiguous.</summary>
+public sealed record KnownHost(HostingKind Kind, string BaseUrl);
+
+public sealed record HostedUser(string Login, string Name);
+
+/// <summary>A project (GitLab) or repository (GitHub) that can be cloned.</summary>
+public sealed record HostedProject(string FullName, string? Description, string HttpUrl, string SshUrl, string WebUrl);
+
+/// <summary>An open merge request (GitLab) or pull request (GitHub).</summary>
+public sealed record ChangeRequest(HostingKind Kind, long Number, string Title, string WebUrl, bool Draft)
+{
+    /// <summary>"!12" on GitLab, "#12" on GitHub.</summary>
+    public string Reference => Kind == HostingKind.GitHub ? $"#{Number}" : $"!{Number}";
+}
+
+/// <summary>
+/// CI state of a branch: the latest GitLab pipeline, or GitHub's check runs combined.
+/// <see cref="Status"/> uses GitLab's vocabulary: success, failed, running, pending, canceled, skipped.
+/// </summary>
+public sealed record CiStatus(string Status, string WebUrl);
+
+public sealed class NewChangeRequest
+{
+    public string SourceBranch { get; set; } = "";
+    public string TargetBranch { get; set; } = "";
+    public string Title { get; set; } = "";
+    public string? Description { get; set; }
+    public bool Draft { get; set; }
+    public bool AssignToMe { get; set; }
+    /// <summary>GitLab only: delete the source branch when merged.</summary>
+    public bool RemoveSourceBranch { get; set; }
+    /// <summary>GitLab only: squash commits when merged.</summary>
+    public bool Squash { get; set; }
+}
+
+/// <summary>The API operations the app needs, implemented for GitLab and GitHub.</summary>
+public interface IHostingService
+{
+    HostingKind Kind { get; }
+
+    /// <summary>Has a server URL and an access token.</summary>
+    bool IsConfigured { get; }
+
+    /// <summary>Whether this account's server hosts the given remote.</summary>
+    bool Handles(HostedRemote remote);
+
+    Task<HostedUser> GetUserAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<HostedProject>> ListProjectsAsync(string? search, CancellationToken ct = default);
+    Task<string?> GetDefaultBranchAsync(string projectPath, CancellationToken ct = default);
+
+    /// <summary>Branch names with the default branch first.</summary>
+    Task<IReadOnlyList<string>> ListBranchesAsync(string projectPath, CancellationToken ct = default);
+
+    Task<ChangeRequest?> FindOpenChangeRequestAsync(string projectPath, string sourceBranch, CancellationToken ct = default);
+    Task<CiStatus?> GetCiStatusAsync(string projectPath, string branch, CancellationToken ct = default);
+    Task<ChangeRequest> CreateChangeRequestAsync(string projectPath, NewChangeRequest request, CancellationToken ct = default);
+}

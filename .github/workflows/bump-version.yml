@@ -1,0 +1,62 @@
+name: Create bump version PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version bump type.
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - prepatch
+          - preminor
+          - premajor
+          - prerelease
+      preid:
+        description: Prerelease identifier (e.g., 'alpha', 'beta', 'rc'). Only used with pre* version types.
+        required: false
+        type: string
+        default: 'rc'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump-version-pr:
+    name: Bump version PR
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history: the changelog lists pull requests since the last tag
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Bump version and update changelog
+        # build/bump_version.py is shared with the GitLab pipeline's bump-version job
+        id: version-details
+        run: |
+          python build/bump_version.py "${{ inputs.version }}" "${{ inputs.preid }}"
+          rm bump_version.txt
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: Release v${{ steps.version-details.outputs.version }}
+          branch: release-v${{ steps.version-details.outputs.version }}
+          title: Release v${{ steps.version-details.outputs.version }}
+          body: |
+            Automated version bump to `v${{ steps.version-details.outputs.version }}`.
+
+            Review the `CHANGELOG.md` entries before merging. Once merged, the **Build and Release** workflow publishes the GitHub release.
+          labels: release

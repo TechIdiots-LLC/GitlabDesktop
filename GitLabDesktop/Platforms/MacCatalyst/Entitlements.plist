@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <!--
+      Distributed directly (not through the Mac App Store), so no App Sandbox: the app runs the git command line
+      and opens Finder/Terminal/editors, none of which a sandboxed app may do.
+    -->
+    <dict>
+        <key>com.apple.security.network.client</key>
+        <true/>
+        <!-- Needed under the hardened runtime (signed and notarized releases) for the .NET runtime's JIT -->
+        <key>com.apple.security.cs.allow-jit</key>
+        <true/>
+    </dict>
+</plist>

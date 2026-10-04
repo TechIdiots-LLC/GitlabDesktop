@@ -7,6 +7,14 @@
 ### 🐞 Bug fixes
 - _...Add new stuff here..._
 
+## 0.1.1
+### ✨ Features and improvements
+- The window remembers its size, position and maximized state between runs. The first run, or a saved position that is no longer on any screen, opens centred and sized to fit the display.
+
+### 🐞 Bug fixes
+- The window no longer opens taller than the screen on scaled displays.
+- macOS build: fixed the packaging script under macOS's bash 3.2, and unsigned builds no longer look for a signing certificate.
+
 ## 0.1.0
 ### ✨ Features and improvements
 - First release: a GitHub Desktop-style client for GitLab and GitHub. Changes and History tabs, line-level commits, branch management, merge/pull request creation, CI status, cloning, and a repositories folder that picks up existing checkouts.

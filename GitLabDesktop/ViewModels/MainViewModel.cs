@@ -351,6 +351,8 @@ public sealed partial class MainViewModel : ObservableObject
 
                 bool headChanged = Status?.HeadSha != status.HeadSha || Status?.Branch != status.Branch;
                 bool branchChanged = Status?.Branch != status.Branch;
+                // A push or fetch moves the upstream without moving HEAD, which changes which commits are unpushed.
+                bool upstreamChanged = Status?.Upstream != status.Upstream || Status?.Ahead != status.Ahead;
                 Status = status;
                 Operation = op;
                 await UpdateChangedFilesAsync(status.Files);
@@ -361,7 +363,7 @@ public sealed partial class MainViewModel : ObservableObject
                     if (prepared is not null) SetCommitMessage(prepared);
                 }
 
-                if (full || headChanged) await LoadHistoryAsync();
+                if (full || headChanged || upstreamChanged) await LoadHistoryAsync();
                 if (branchChanged && !full) _ = LoadHostingInfoAsync();
                 StatusMessage = null;
             }

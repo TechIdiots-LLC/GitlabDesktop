@@ -89,6 +89,17 @@ public sealed partial class MainViewModel : ObservableObject
     private bool _isHistoryTab;
 
     public bool IsChangesTab => !IsHistoryTab;
+
+    /// <summary>The diff takes the full width, hiding the file and commit lists.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DiffExpandText), nameof(ShowLists))]
+    private bool _isDiffExpanded;
+
+    public bool ShowLists => !IsDiffExpanded;
+    public string DiffExpandText => IsDiffExpanded ? "⤡ Show lists" : "⤢ Full width";
+
+    [RelayCommand]
+    void ToggleDiffExpanded() => IsDiffExpanded = !IsDiffExpanded;
     public bool HasRepository => Repo is not null;
     public bool NoRepository => Repo is null;
     public bool HasRemote => Remote is not null;

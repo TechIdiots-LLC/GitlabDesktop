@@ -44,6 +44,10 @@
                 <MenuFlyoutItem.KeyboardAccelerators><KeyboardAccelerator Modifiers="Ctrl" Key="B" /></MenuFlyoutItem.KeyboardAccelerators>
             </MenuFlyoutItem>
             <MenuFlyoutSeparator />
+            <MenuFlyoutItem Text="Full-width diff (toggle)" Command="{Binding ToggleDiffExpandedCommand}">
+                <MenuFlyoutItem.KeyboardAccelerators><KeyboardAccelerator Modifiers="Ctrl" Key="D3" /></MenuFlyoutItem.KeyboardAccelerators>
+            </MenuFlyoutItem>
+            <MenuFlyoutSeparator />
             <MenuFlyoutItem Text="Refresh" Command="{Binding RefreshCommand}">
                 <MenuFlyoutItem.KeyboardAccelerators><KeyboardAccelerator Key="F5" /></MenuFlyoutItem.KeyboardAccelerators>
             </MenuFlyoutItem>
@@ -227,10 +231,10 @@
         </VerticalStackLayout>
 
         <!-- ── Repository view ─────────────────────────────────────────────── -->
-        <Grid Grid.Row="2" ColumnDefinitions="340,1,*" IsVisible="{Binding HasRepository}">
+        <Grid x:Name="RepoGrid" Grid.Row="2" ColumnDefinitions="340,Auto,*" IsVisible="{Binding HasRepository}">
 
-            <!-- Left pane -->
-            <Grid RowDefinitions="Auto,1,*"
+            <!-- Left pane (hidden when the diff is expanded to full width) -->
+            <Grid RowDefinitions="Auto,1,*" IsVisible="{Binding ShowLists}"
                   BackgroundColor="{AppThemeBinding Light={StaticResource PaneLight}, Dark={StaticResource PaneDark}}">
 
                 <Grid ColumnDefinitions="*,*">
@@ -361,14 +365,19 @@
                 </CollectionView>
             </Grid>
 
-            <BoxView Grid.Column="1" Style="{StaticResource VSeparator}" />
+            <!-- Drag to resize the lists; the width is remembered -->
+            <controls:GridSplitter x:Name="LeftSplitter" Grid.Column="1" PreferenceKey="split_left_pane"
+                                   MinimumSize="240" MinimumRemaining="360" IsVisible="{Binding ShowLists}" />
 
             <!-- Right pane: Changes -->
             <Grid Grid.Column="2" IsVisible="{Binding IsChangesTab}">
                 <Grid RowDefinitions="Auto,1,*" IsVisible="{Binding HasChanges}">
-                    <Grid ColumnDefinitions="*,Auto" Padding="12,8">
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12" Padding="12,4">
                         <Label Text="{Binding SelectedChange.Change.Path}" FontAttributes="Bold" LineBreakMode="HeadTruncation" VerticalOptions="Center" />
                         <Label Grid.Column="1" Text="Click the gutter to include or exclude lines" Style="{StaticResource SecondaryText}" VerticalOptions="Center" />
+                        <Button Grid.Column="2" Text="{Binding DiffExpandText}" Command="{Binding ToggleDiffExpandedCommand}"
+                                Style="{StaticResource SecondaryButton}" Padding="10,2" FontSize="12"
+                                ToolTipProperties.Text="Show the diff across the full width (toggle)" />
                     </Grid>
                     <BoxView Grid.Row="1" Style="{StaticResource Separator}" />
                     <controls:DiffView Grid.Row="2" Lines="{Binding ChangeDiffLines}" Message="{Binding ChangeDiffMessage}"
@@ -390,16 +399,22 @@
 
             <!-- Right pane: History -->
             <Grid Grid.Column="2" RowDefinitions="Auto,1,*" IsVisible="{Binding IsHistoryTab}">
-                <VerticalStackLayout Padding="12,8" Spacing="4" IsVisible="{Binding HasSelectedCommit}">
-                    <Label Text="{Binding SelectedCommit.Summary}" FontSize="16" FontAttributes="Bold" />
-                    <Label Text="{Binding SelectedCommit.Body}" FontSize="13" MaxLines="8" LineBreakMode="WordWrap"
-                           IsVisible="{Binding SelectedCommit.Body, Converter={StaticResource IsNotNullOrEmpty}}" />
-                    <Label Text="{Binding SelectedCommitMeta}" Style="{StaticResource SecondaryText}" />
-                </VerticalStackLayout>
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="12,8" IsVisible="{Binding HasSelectedCommit}">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="{Binding SelectedCommit.Summary}" FontSize="16" FontAttributes="Bold" />
+                        <Label Text="{Binding SelectedCommit.Body}" FontSize="13" MaxLines="8" LineBreakMode="WordWrap"
+                               IsVisible="{Binding SelectedCommit.Body, Converter={StaticResource IsNotNullOrEmpty}}" />
+                        <Label Text="{Binding SelectedCommitMeta}" Style="{StaticResource SecondaryText}" />
+                    </VerticalStackLayout>
+                    <Button Grid.Column="1" Text="{Binding DiffExpandText}" Command="{Binding ToggleDiffExpandedCommand}"
+                            Style="{StaticResource SecondaryButton}" Padding="10,2" FontSize="12" VerticalOptions="Start"
+                            ToolTipProperties.Text="Show the diff across the full width (toggle)" />
+                </Grid>
                 <BoxView Grid.Row="1" Style="{StaticResource Separator}" />
 
-                <Grid Grid.Row="2" ColumnDefinitions="280,1,*">
-                    <CollectionView ItemsSource="{Binding CommitFiles}" SelectionMode="Single" SelectedItem="{Binding SelectedCommitFile}">
+                <Grid x:Name="HistoryFilesGrid" Grid.Row="2" ColumnDefinitions="280,Auto,*">
+                    <CollectionView ItemsSource="{Binding CommitFiles}" SelectionMode="Single" SelectedItem="{Binding SelectedCommitFile}"
+                                    IsVisible="{Binding ShowLists}">
                         <CollectionView.ItemTemplate>
                             <DataTemplate x:DataType="git:FileChange">
                                 <Grid ColumnDefinitions="*,Auto" Padding="10,6" ColumnSpacing="6">
@@ -422,7 +437,8 @@
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
                     </CollectionView>
-                    <BoxView Grid.Column="1" Style="{StaticResource VSeparator}" />
+                    <controls:GridSplitter Grid.Column="1" PreferenceKey="split_history_files"
+                                           MinimumSize="160" MinimumRemaining="300" IsVisible="{Binding ShowLists}" />
                     <controls:DiffView Grid.Column="2" Lines="{Binding CommitDiffLines}" Message="{Binding CommitDiffMessage}" />
                 </Grid>
             </Grid>

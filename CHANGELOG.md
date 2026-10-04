@@ -10,6 +10,8 @@
 ## 0.1.1
 ### ✨ Features and improvements
 - The window remembers its size, position and maximized state between runs. The first run, or a saved position that is no longer on any screen, opens centred and sized to fit the display.
+- Drag the dividers between the file/commit lists and the diff to resize them; the widths are remembered.
+- **Full width** button on the diff (also View › Full-width diff, Ctrl+3) hides the lists so the diff uses the whole window. It always starts off after a restart.
 
 ### 🐞 Bug fixes
 - The window no longer opens taller than the screen on scaled displays.

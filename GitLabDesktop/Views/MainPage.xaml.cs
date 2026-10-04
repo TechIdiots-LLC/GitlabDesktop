@@ -12,6 +12,35 @@ public partial class MainPage : ContentPage
     {
         InitializeComponent();
         BindingContext = _vm = vm;
+        vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(MainViewModel.IsDiffExpanded)) ApplyDiffExpanded(vm.IsDiffExpanded);
+        };
+    }
+
+    // Widths of the list columns while the diff is expanded, to put back afterwards.
+    GridLength _leftWidth, _historyFilesWidth;
+
+    /// <summary>
+    /// Collapses (or restores) the list columns. Hiding a pane leaves its column's width behind, so the columns
+    /// themselves go to zero; the splitters keep whatever width the user dragged them to.
+    /// </summary>
+    void ApplyDiffExpanded(bool expanded)
+    {
+        var left = RepoGrid.ColumnDefinitions[0];
+        var files = HistoryFilesGrid.ColumnDefinitions[0];
+        if (expanded)
+        {
+            _leftWidth = left.Width;
+            _historyFilesWidth = files.Width;
+            left.Width = new GridLength(0);
+            files.Width = new GridLength(0);
+        }
+        else
+        {
+            left.Width = _leftWidth;
+            files.Width = _historyFilesWidth;
+        }
     }
 
     // Context menu items inherit the row's BindingContext.

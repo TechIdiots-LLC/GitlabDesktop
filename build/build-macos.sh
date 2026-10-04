@@ -16,6 +16,10 @@ OUT_DIR="$2"
 PROJECT=GitLabDesktop/GitLabDesktop.csproj
 VOLUME_NAME="GitLab Desktop"
 
+# Report the command that failed as a "::error::" line. GitHub Actions turns these into annotations, which can be read
+# without signing in (job logs can't); elsewhere it is just a log line.
+trap 'echo "::error title=build-macos.sh::line $LINENO failed (exit $?): $BASH_COMMAND"' ERR
+
 # Never left empty: macOS's bash 3.2 treats "${empty_array[@]}" as an unbound variable under set -u.
 if [ -n "${MACOS_SIGNING_IDENTITY:-}" ]; then
   echo "Signing with: $MACOS_SIGNING_IDENTITY"
@@ -30,7 +34,13 @@ fi
 # A build, not a publish: publish would wrap the app in an installer .pkg, and a drag-to-Applications .dmg is the
 # usual way to ship a Mac app outside the App Store. EnableWindowsTargeting: the csproj also targets Windows, and
 # restore evaluates every target framework even when -f picks one (NETSDK1100 otherwise).
-dotnet build "$PROJECT" -f net10.0-maccatalyst -c Release -p:EnableWindowsTargeting=true "${sign_args[@]}"
+BUILD_LOG=$(mktemp)
+if ! dotnet build "$PROJECT" -f net10.0-maccatalyst -c Release -p:EnableWindowsTargeting=true "${sign_args[@]}" 2>&1 | tee "$BUILD_LOG"; then
+  # Surface the compiler/MSBuild errors as annotations too
+  grep -E '(: error |error [A-Z]+[0-9]+:)' "$BUILD_LOG" | sed -E 's/ \[[^]]*\]$//' | sort -u | head -20 |
+    while IFS= read -r line; do echo "::error title=dotnet build::$line"; done
+  exit 1
+fi
 
 BASE=GitLabDesktop/bin/Release/net10.0-maccatalyst
 # Prefer the bundle directly in the output folder (the universal app); only search deeper if it isn't there.
@@ -54,7 +64,13 @@ STAGING=$(mktemp -d)
 trap 'rm -rf "$STAGING"' EXIT
 ditto "$APP" "$STAGING/$(basename "$APP")"
 ln -s /Applications "$STAGING/Applications"
-hdiutil create -volname "$VOLUME_NAME" -srcfolder "$STAGING" -ov -format UDZO "$DMG"
+# hdiutil on hosted Mac runners intermittently fails with "Resource busy"; retry a few times before giving up.
+for attempt in 1 2 3 4; do
+  if hdiutil create -volname "$VOLUME_NAME" -srcfolder "$STAGING" -ov -format UDZO "$DMG"; then break; fi
+  if [ "$attempt" = 4 ]; then echo "::error title=hdiutil::could not create $DMG"; exit 1; fi
+  echo "hdiutil failed (attempt $attempt); retrying in 10 seconds"
+  sleep 10
+done
 
 if [ -n "${MACOS_SIGNING_IDENTITY:-}" ]; then
   codesign --force --sign "$MACOS_SIGNING_IDENTITY" "$DMG"

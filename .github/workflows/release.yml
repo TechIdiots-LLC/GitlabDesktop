@@ -190,6 +190,16 @@ jobs:
           [IO.File]::WriteAllBytes($path, [Convert]::FromBase64String($env:KEYSTORE_B64))
           echo "ANDROID_KEYSTORE_PATH=$path" >> $env:GITHUB_ENV
 
+      - name: Check keystore, password and alias
+        # Says which one is wrong, instead of jarsigner's bare "exited with code 1"; never prints a secret
+        if: steps.keystore.outputs.present == 'true'
+        shell: pwsh
+        env:
+          KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD || secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: ./build/Test-AndroidKeystore.ps1 -Keystore $env:ANDROID_KEYSTORE_PATH -StorePassword $env:KEYSTORE_PASS -Alias $env:KEY_ALIAS -KeyPassword $env:KEY_PASS
+
       - name: Publish Android APK (universal)
         if: steps.keystore.outputs.present == 'true'
         env:

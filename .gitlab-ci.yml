@@ -218,6 +218,8 @@ release-android:
     - '[IO.File]::WriteAllBytes($keystore, [Convert]::FromBase64String($env:ANDROID_KEYSTORE_BASE64))'
     # The key password defaults to the keystore password; set ANDROID_KEY_PASSWORD only if they differ
     - $keyPassword = if ($env:ANDROID_KEY_PASSWORD) { $env:ANDROID_KEY_PASSWORD } else { $env:ANDROID_KEYSTORE_PASSWORD }
+    # Say which of keystore / password / alias / key password is wrong, instead of jarsigner's bare "exited with code 1"
+    - ./build/Test-AndroidKeystore.ps1 -Keystore $keystore -StorePassword $env:ANDROID_KEYSTORE_PASSWORD -Alias $env:ANDROID_KEY_ALIAS -KeyPassword $keyPassword
     - dotnet workload restore GitLabDesktop.sln
     - dotnet restore GitLabDesktop.sln
     - dotnet publish GitLabDesktop/GitLabDesktop.csproj -f net10.0-android36.0 -c Release -p:AndroidKeyStore=true
@@ -263,6 +265,25 @@ release-publish:
   resource_group: release
   script:
     - ./.gitlab/scripts/publish-release.ps1 -PackageName gitlabdesktop -ReleaseName "GitLab Desktop"
+
+# Run by hand (the ▶ button on a main pipeline) to test the Android signing variables without making a release.
+android-keystore-check:
+  stage: check
+  rules:
+    - if: $BUMP_VERSION != "none"
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+      allow_failure: true
+  environment: *signing-environment
+  script:
+    - if ([string]::IsNullOrWhiteSpace($env:ANDROID_KEYSTORE_BASE64)) { throw 'ANDROID_KEYSTORE_BASE64 is not available to this job (check the variable and its environment scope, signing/main).' }
+    - $keystore = Join-Path ([IO.Path]::GetTempPath()) "gitlabdesktop-check-$env:CI_JOB_ID.keystore"
+    - '[IO.File]::WriteAllBytes($keystore, [Convert]::FromBase64String($env:ANDROID_KEYSTORE_BASE64))'
+    - $keyPassword = if ($env:ANDROID_KEY_PASSWORD) { $env:ANDROID_KEY_PASSWORD } else { $env:ANDROID_KEYSTORE_PASSWORD }
+    - ./build/Test-AndroidKeystore.ps1 -Keystore $keystore -StorePassword $env:ANDROID_KEYSTORE_PASSWORD -Alias $env:ANDROID_KEY_ALIAS -KeyPassword $keyPassword
+  after_script:
+    - Remove-Item (Join-Path ([IO.Path]::GetTempPath()) "gitlabdesktop-check-$env:CI_JOB_ID.keystore") -Force -ErrorAction SilentlyContinue
 
 # ── Version bump ────────────────────────────────────────────────────────────────────────────────────
 

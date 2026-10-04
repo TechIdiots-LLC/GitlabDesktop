@@ -55,6 +55,9 @@ public partial class MainPage : ContentPage
             left.Width = _leftWidth;
             files.Width = _historyFilesWidth;
         }
+        // A column width change alone doesn't re-run the grid's layout on Windows.
+        ((IView)RepoGrid).InvalidateMeasure();
+        ((IView)HistoryFilesGrid).InvalidateMeasure();
     }
 
     // Context menu items inherit the row's BindingContext.

@@ -6,6 +6,7 @@
 
 ### 🐞 Bug fixes
 - _...Add new stuff here..._
+- Dragging the dividers between the lists and the diff now resizes them on Windows (the cursor changed, but the layout didn't update), and a divider's width is only saved after an actual drag.
 
 ## 0.1.1
 ### ✨ Features and improvements

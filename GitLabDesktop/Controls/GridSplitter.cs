@@ -81,21 +81,29 @@ public partial class GridSplitter : ContentView
             column.Width = new GridLength(Math.Max(MinimumSize, saved));
     }
 
+    bool _dragging;
+
     void BeginDrag()
     {
-        if (Column is { } column && Parent is Grid grid)
-            _startWidth = column.Width.IsAbsolute ? column.Width.Value : grid.Width / 3;
+        if (Column is not { } column || Parent is not Grid grid) return;
+        _startWidth = column.Width.IsAbsolute ? column.Width.Value : grid.Width / 3;
+        _dragging = true;
     }
 
     void DragTo(double totalX)
     {
-        if (Column is not { } column || Parent is not Grid grid) return;
+        if (!_dragging || Column is not { } column || Parent is not Grid grid) return;
         double max = Math.Max(MinimumSize, grid.Width - MinimumRemaining);
         column.Width = new GridLength(Math.Clamp(_startWidth + totalX, MinimumSize, max));
+        // Changing a column's width alone doesn't re-run the grid's layout on Windows; ask for it explicitly.
+        ((IView)grid).InvalidateMeasure();
     }
 
+    /// <summary>Saves the width, but only after an actual drag (capture can also be lost without one).</summary>
     void EndDrag()
     {
+        if (!_dragging) return;
+        _dragging = false;
         if (PreferenceKey is { } key && Column is { Width.IsAbsolute: true } column)
             Preferences.Set(key, column.Width.Value);
     }

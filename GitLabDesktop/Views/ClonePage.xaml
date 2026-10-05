@@ -46,6 +46,10 @@
                 <Entry Text="{Binding LocalPath}" />
                 <Button Grid.Column="1" Text="Choose…" Command="{Binding BrowseCommand}" Style="{StaticResource SecondaryButton}" />
             </Grid>
+            <Grid ColumnDefinitions="Auto,*">
+                <CheckBox IsChecked="{Binding RecurseSubmodules}" />
+                <Label Grid.Column="1" Text="Include submodules (the default is set in Options › Repositories)" VerticalOptions="Center" />
+            </Grid>
         </VerticalStackLayout>
 
         <Label Grid.Row="6" Text="{Binding Error}" TextColor="{StaticResource KindDeleted}"

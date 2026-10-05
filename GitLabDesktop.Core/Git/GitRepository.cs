@@ -33,12 +33,32 @@ public sealed partial class GitRepository(GitRunner git, string path)
     public static Task InitAsync(GitRunner git, string dir, string defaultBranch = "main")
         => git.RunAsync(dir, ["init", "-b", defaultBranch]);
 
-    public static Task CloneAsync(GitRunner git, string url, string targetDir, CancellationToken ct = default)
+    /// <param name="recurseSubmodules">
+    /// Also clone the submodules. git's own submodule.recurse setting doesn't apply to clone, so this is passed explicitly.
+    /// </param>
+    public static Task CloneAsync(GitRunner git, string url, string targetDir, bool recurseSubmodules = true, CancellationToken ct = default)
     {
         var parent = System.IO.Path.GetDirectoryName(targetDir)!;
         Directory.CreateDirectory(parent);
-        return git.RunAsync(parent, ["clone", "--recurse-submodules", "--", url, targetDir], ct: ct);
+        List<string> args = ["clone"];
+        if (recurseSubmodules) args.Add("--recurse-submodules");
+        args.AddRange(["--", url, targetDir]);
+        return git.RunAsync(parent, args, ct: ct);
     }
+
+    /// <summary>A boolean from the user's global git config, or null when it isn't set.</summary>
+    public static async Task<bool?> GetGlobalBoolAsync(GitRunner git, string key)
+    {
+        var r = await git.RunAsync(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ["config", "--global", "--type=bool", "--get", key], throwOnError: false);
+        return r.Success ? r.StdOut.Trim() == "true" : null;
+    }
+
+    /// <summary>Sets a boolean in the global git config; false removes it, which git reads as false.</summary>
+    public static Task SetGlobalBoolAsync(GitRunner git, string key, bool value)
+        => git.RunAsync(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            value ? ["config", "--global", key, "true"] : ["config", "--global", "--unset", key],
+            throwOnError: value);   // unsetting a key that isn't there "fails" with exit code 5
 
     // ── Status ───────────────────────────────────────────────────────────────
 

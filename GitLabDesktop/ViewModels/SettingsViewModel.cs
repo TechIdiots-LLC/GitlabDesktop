@@ -13,10 +13,15 @@ public sealed partial class SettingsViewModel : ModalViewModel<bool>
     readonly AppSettings _settings;
     readonly HostingRegistry _hosting;
 
-    public SettingsViewModel(AppSettings settings, HostingRegistry hosting)
+    readonly GitRunner _git;
+    bool? _savedRecurseSubmodules;
+
+    public SettingsViewModel(AppSettings settings, HostingRegistry hosting, GitRunner git)
     {
         _settings = settings;
         _hosting = hosting;
+        _git = git;
+        _ = LoadRecurseSubmodulesAsync();
         foreach (var a in settings.Accounts.OrderBy(a => a.Host, StringComparer.OrdinalIgnoreCase).ThenBy(a => a.Repository is not null))
             Accounts.Add(new AccountViewModel(a, hosting, RemoveAccount));
         _repositoriesDirectory = settings.RepositoriesDirectory;
@@ -39,6 +44,18 @@ public sealed partial class SettingsViewModel : ModalViewModel<bool>
     [ObservableProperty] private bool _autoCheckUpdates;
     [ObservableProperty] private bool _includePrereleases;
     [ObservableProperty] private string _editorCommand;
+    /// <summary>
+    /// git's own global submodule.recurse: checkout, switch, pull and fetch update submodules, and clones include them by
+    /// default (git doesn't apply it to clone, so the clone dialog does).
+    /// </summary>
+    [ObservableProperty] private bool _recurseSubmodules;
+
+    async Task LoadRecurseSubmodulesAsync()
+    {
+        RecurseSubmodules = await GitRepository.GetGlobalBoolAsync(_git, "submodule.recurse") ?? false;
+        _savedRecurseSubmodules = RecurseSubmodules;
+    }
+
     [ObservableProperty] private string _gitExecutable;
     [ObservableProperty] private string? _gitTestResult;
 
@@ -180,6 +197,15 @@ public sealed partial class SettingsViewModel : ModalViewModel<bool>
         AppUpdater.IncludePrereleases = IncludePrereleases;
         _settings.EditorCommand = EditorCommand.Trim();
         _settings.GitExecutable = GitExecutable;
+        if (_savedRecurseSubmodules is { } before && before != RecurseSubmodules)
+        {
+            try { await GitRepository.SetGlobalBoolAsync(_git, "submodule.recurse", RecurseSubmodules); }
+            catch (Exception ex)
+            {
+                Error = $"Could not change git's submodule.recurse setting: {ex.Message}";
+                return;
+            }
+        }
         Complete(true);
     }
 

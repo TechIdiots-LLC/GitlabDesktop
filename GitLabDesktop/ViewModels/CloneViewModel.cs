@@ -53,7 +53,14 @@ public sealed partial class CloneViewModel : ModalViewModel<string?>
     [ObservableProperty] private string _localPath = "";
     [ObservableProperty] private bool _useSsh;
 
-    public async Task InitializeAsync() => await LoadProjectsAsync();
+    /// <summary>Starts as git's submodule.recurse setting (Options › Repositories); can be changed for this clone.</summary>
+    [ObservableProperty] private bool _recurseSubmodules;
+
+    public async Task InitializeAsync()
+    {
+        RecurseSubmodules = await GitRepository.GetGlobalBoolAsync(_git, "submodule.recurse") ?? false;
+        await LoadProjectsAsync();
+    }
 
     partial void OnSearchChanged(string value) => _ = LoadProjectsAsync();
 
@@ -129,7 +136,7 @@ public sealed partial class CloneViewModel : ModalViewModel<string?>
             {
                 try
                 {
-                    await GitRepository.CloneAsync(_git, Url.Trim(), LocalPath, _cloneCts.Token);
+                    await GitRepository.CloneAsync(_git, Url.Trim(), LocalPath, RecurseSubmodules, _cloneCts.Token);
                     break;
                 }
                 catch (GitException ex) when (GitSignInService.IsAuthenticationFailure(ex))

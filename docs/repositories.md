@@ -21,6 +21,8 @@ Type in **Filter** to narrow the list by name or folder, and press Enter to open
   is remembered for next time.
 - **Local path** is where it goes: your [repositories folder](#the-repositories-folder) plus the project name.
   **Choose…** picks a different parent folder, or edit the path directly. The folder must be empty or not exist yet.
+- **Include submodules** also clones the repository's submodules. It starts ticked or not according to
+  [Options › Repositories](options.md#repositories), and can be changed for each clone.
 - **Clone**. If the server needs a sign-in, the app [asks for one](accounts.md#when-git-asks-you-to-sign-in).
 
 ## Add an existing repository

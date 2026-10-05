@@ -15,6 +15,7 @@ GitLab, GitHub and other git server sign-ins. See [Accounts and signing in](acco
 | **Use GitHub Desktop folder** | `Documents\GitHub`, so repositories you cloned with GitHub Desktop show up too. |
 | **Automatically add repositories found in this folder** | Adds repositories in the folder, and one level of subfolders, to the repository list. The line above it says how many were found. |
 | **Clone with SSH instead of HTTPS** | The default for the **SSH** box in the clone dialog. |
+| **Include submodules** | The default for **Include submodules** in the clone dialog. It is git's own `submodule.recurse` setting (in your global git config), so switching branches and pulling also update submodules, in the app and in git on the command line. Off unless you've turned it on. |
 
 ## Updates
 

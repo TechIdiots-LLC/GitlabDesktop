@@ -3,12 +3,17 @@
 ## master
 ### ✨ Features and improvements
 - _...Add new stuff here..._
+
+### 🐞 Bug fixes
+- _...Add new stuff here..._
+
+## 0.4.3
+### ✨ Features and improvements
 - **Support long file paths** in Options › Repositories (Windows): git's `core.longpaths`, for repositories with paths over 260 characters. The option shows what git uses, including Git for Windows' system setting. The Include submodules option now also follows the system config the same way.
 - **Repository settings** is now a dialog like GitHub Desktop's, with **Remote** (the remote URL), **Ignored files** (edit the `.gitignore`) and **Git config** (use your global name and email, or set ones for this repository only).
 - **Submodules**: the clone dialog has an **Include submodules** checkbox, and **Options › Repositories › Include submodules** sets its default. That option is git's own `submodule.recurse` setting, so switching branches and pulling also update submodules, in the app and on the command line. Clones used to always include submodules; they now follow this setting, which is off unless you've turned it on.
 
 ### 🐞 Bug fixes
-- _...Add new stuff here..._
 
 ## 0.4.2
 ### ✨ Features and improvements

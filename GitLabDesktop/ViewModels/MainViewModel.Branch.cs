@@ -35,17 +35,19 @@ public sealed partial class MainViewModel
         var branches = await Repo.GetBranchesAsync();
         var localNames = branches.Where(b => !b.IsRemote).Select(b => b.Name).ToHashSet();
 
-        var items = new List<PickerItem> { new("+ New branch…", "Create a branch from the current HEAD", NewBranchMarker) };
-        items.AddRange(branches
-            .Where(b => !b.IsRemote)
-            .Select(b => new PickerItem(b.Name, b.Upstream is { } u ? $"tracks {u}" : "not published", b,
-                b.IsCurrent ? "current" : b.LastCommitDate is { } d ? Converters.RelativeTimeConverter.Format(d) : null)));
-        items.AddRange(branches
-            .Where(b => b.IsRemote && !localNames.Contains(b.NameWithoutRemote))
-            .Select(b => new PickerItem(b.Name, "remote branch", b,
-                b.LastCommitDate is { } d ? Converters.RelativeTimeConverter.Format(d) : null)));
+        static string? Age(BranchInfo b) => b.LastCommitDate is { } d ? Converters.RelativeTimeConverter.Format(d) : null;
 
-        var picked = await _dialogs.PickAsync<object>("Switch branch", items);
+        // Grouped like GitHub Desktop: the default branch, then other local branches, then remote-only ones.
+        var local = branches.Where(b => !b.IsRemote)
+            .OrderBy(b => b.Name == DefaultBranch ? 0 : 1)
+            .Select(b => new PickerItem(b.IsCurrent ? $"✓ {b.Name}" : b.Name,
+                b.Upstream is { } u ? $"tracks {u}" : "not published", b, Age(b),
+                b.Name == DefaultBranch ? "Default branch" : "Branches"));
+        var remote = branches.Where(b => b.IsRemote && !localNames.Contains(b.NameWithoutRemote))
+            .Select(b => new PickerItem(b.Name, null, b, Age(b), "Remote branches"));
+
+        var picked = await _dialogs.DropdownAsync<object>(DropdownAnchor.Branch, "Switch branch", local.Concat(remote),
+            [new PickerItem("New branch", null, NewBranchMarker)]);
         if (picked == NewBranchMarker) await NewBranchAsync(null, null);
         else if (picked is BranchInfo b && !b.IsCurrent) await SwitchToBranchAsync(b);
     }

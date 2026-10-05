@@ -18,17 +18,18 @@ public sealed partial class MainViewModel
     [RelayCommand]
     async Task ChooseRepository()
     {
-        var items = new List<PickerItem>
-        {
-            new("+ Add local repository…", null, AddRepositoryMarker),
-            new("+ Clone repository…", null, CloneRepositoryMarker),
-        };
-        items.AddRange(Repositories
+        PickerItem[] actions =
+        [
+            new("Add…", null, AddRepositoryMarker),
+            new("Clone…", null, CloneRepositoryMarker),
+        ];
+        var items = Repositories
             .OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase)
             .Select(p => new PickerItem(Path.GetFileName(p), p, p,
-                string.Equals(p, Repo?.Path, StringComparison.OrdinalIgnoreCase) ? "current" : null)));
+                string.Equals(p, Repo?.Path, StringComparison.OrdinalIgnoreCase) ? "current" : null));
 
-        var picked = await _dialogs.PickAsync<object>("Repositories", items);
+        var picked = await _dialogs.DropdownAsync<object>(DropdownAnchor.Repository, "Repositories", items, actions,
+            "No repositories yet. Add or clone one.");
         if (picked == AddRepositoryMarker) await AddLocalRepository();
         else if (picked == CloneRepositoryMarker) await CloneRepository();
         else if (picked is string path && !string.Equals(path, Repo?.Path, StringComparison.OrdinalIgnoreCase))

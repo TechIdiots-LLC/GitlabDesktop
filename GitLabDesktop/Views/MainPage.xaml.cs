@@ -5,17 +5,18 @@ using GitLabDesktop.ViewModels;
 
 namespace GitLabDesktop.Views;
 
-public partial class MainPage : ContentPage
+public partial class MainPage : ContentPage, IDropdownHost
 {
     readonly MainViewModel _vm;
 
     readonly AppUpdater _updater;
 
-    public MainPage(MainViewModel vm, AppUpdater updater)
+    public MainPage(MainViewModel vm, AppUpdater updater, DialogService dialogs)
     {
         InitializeComponent();
         BindingContext = _vm = vm;
         _updater = updater;
+        dialogs.DropdownHost = this;
         vm.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(MainViewModel.IsDiffExpanded)) ApplyDiffExpanded(vm.IsDiffExpanded);
@@ -31,6 +32,27 @@ public partial class MainPage : ContentPage
     }
 
     async void OnCheckForUpdatesClicked(object? sender, EventArgs e) => await _updater.CheckAsync(interactive: true);
+
+    /// <summary>Shows a picker under the repository or branch button, as wide as GitHub Desktop's lists.</summary>
+    public Task<PickerItem?> ShowDropdownAsync(DropdownAnchor anchor, IReadOnlyList<PickerItem> items, IReadOnlyList<PickerItem> actions, string? emptyText)
+    {
+        (DropdownLayer.Content as PickerDropdown)?.Cancel();
+
+        var button = anchor == DropdownAnchor.Repository ? RepositoryButton : BranchButton;
+        var x = button.X;
+        var width = Math.Min(Math.Max(button.Width, 440), Math.Max(button.Width, Width - x));
+        var dropdown = new PickerDropdown(items, actions, emptyText);
+        dropdown.Place(x, Toolbar.Height, width);
+        dropdown.Closed += (_, _) =>
+        {
+            if (DropdownLayer.Content != dropdown) return;
+            DropdownLayer.Content = null;
+            DropdownLayer.IsVisible = false;
+        };
+        DropdownLayer.Content = dropdown;
+        DropdownLayer.IsVisible = true;
+        return dropdown.Result;
+    }
 
     // Widths of the list columns while the diff is expanded, to put back afterwards.
     GridLength _leftWidth, _historyFilesWidth;

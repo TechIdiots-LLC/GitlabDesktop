@@ -147,10 +147,10 @@
     <Grid RowDefinitions="Auto,Auto,*,Auto">
 
         <!-- ── Toolbar ─────────────────────────────────────────────────────── -->
-        <Grid ColumnDefinitions="300,1,300,1,240,*"
+        <Grid x:Name="Toolbar" ColumnDefinitions="300,1,300,1,240,*"
               BackgroundColor="{AppThemeBinding Light={StaticResource ToolbarLight}, Dark={StaticResource ToolbarDark}}">
 
-            <Grid Style="{StaticResource ToolbarCell}" ColumnDefinitions="*,Auto">
+            <Grid x:Name="RepositoryButton" Style="{StaticResource ToolbarCell}" ColumnDefinitions="*,Auto">
                 <Grid.GestureRecognizers>
                     <TapGestureRecognizer Command="{Binding ChooseRepositoryCommand}" />
                 </Grid.GestureRecognizers>
@@ -163,7 +163,7 @@
 
             <BoxView Grid.Column="1" Color="{StaticResource ToolbarHover}" />
 
-            <Grid Grid.Column="2" Style="{StaticResource ToolbarCell}" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
+            <Grid x:Name="BranchButton" Grid.Column="2" Style="{StaticResource ToolbarCell}" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
                 <Grid.GestureRecognizers>
                     <TapGestureRecognizer Command="{Binding ChooseBranchCommand}" />
                 </Grid.GestureRecognizers>
@@ -471,5 +471,8 @@
         <Label Grid.Row="3" Text="{Binding StatusMessage}" IsVisible="{Binding StatusMessage, Converter={StaticResource IsNotNullOrEmpty}}"
                Padding="12,4" FontSize="12" LineBreakMode="TailTruncation"
                BackgroundColor="{AppThemeBinding Light={StaticResource BannerLight}, Dark={StaticResource BannerDark}}" />
+
+        <!-- ── Repository / branch dropdowns, over everything while open ───── -->
+        <ContentView x:Name="DropdownLayer" Grid.RowSpan="4" IsVisible="False" />
     </Grid>
 </ContentPage>

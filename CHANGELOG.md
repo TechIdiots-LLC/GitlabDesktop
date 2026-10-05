@@ -4,6 +4,8 @@
 ### ✨ Features and improvements
 - _...Add new stuff here..._
 - Accounts and saved git sign-ins are now one list of accounts. An account signs git in to its server (or one repository), and on GitLab and GitHub it is also used for merge/pull requests and CI status; signing in when git asks adds or updates the account. Existing sign-ins are converted automatically. An account's token is now always used for git on its server.
+- The Changes tab shows how many files have changed.
+- Right-click the changed files header to discard or stash all changes.
 
 ### 🐞 Bug fixes
 - _...Add new stuff here..._

@@ -241,7 +241,16 @@
 
                 <Grid ColumnDefinitions="*,*">
                     <Grid>
-                        <Button Text="Changes" Style="{StaticResource TabButton}" Command="{Binding ShowChangesCommand}" />
+                        <!-- The button handles clicks; the label and count are drawn over it so the count sits next to the text. -->
+                        <Button Style="{StaticResource TabButton}" Command="{Binding ShowChangesCommand}" SemanticProperties.Description="Changes" />
+                        <HorizontalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="6" InputTransparent="True">
+                            <Label Text="Changes" FontAttributes="Bold" VerticalOptions="Center"
+                                   TextColor="{AppThemeBinding Light={StaticResource Black}, Dark={StaticResource White}}" />
+                            <Border Style="{StaticResource Badge}" IsVisible="{Binding HasChanges}"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource BorderLight}, Dark={StaticResource BorderDark}}">
+                                <Label Text="{Binding ChangedFilesCount}" FontSize="11" FontAttributes="Bold" />
+                            </Border>
+                        </HorizontalStackLayout>
                         <BoxView HeightRequest="3" VerticalOptions="End" Color="{StaticResource GitLabOrange}" IsVisible="{Binding IsChangesTab}" />
                     </Grid>
                     <Grid Grid.Column="1">
@@ -253,7 +262,14 @@
 
                 <!-- Changes list + commit box -->
                 <Grid Grid.Row="2" RowDefinitions="Auto,1,*,1,Auto" IsVisible="{Binding IsChangesTab}">
-                    <Grid ColumnDefinitions="Auto,*" Padding="6,0">
+                    <!-- A background makes the whole row, not just its controls, open the menu on right-click. -->
+                    <Grid ColumnDefinitions="Auto,*" Padding="6,0" BackgroundColor="Transparent">
+                        <FlyoutBase.ContextFlyout>
+                            <MenuFlyout>
+                                <MenuFlyoutItem Text="Discard all changes…" Command="{Binding DiscardAllChangesCommand}" />
+                                <MenuFlyoutItem Text="Stash all changes" Command="{Binding StashAllChangesCommand}" />
+                            </MenuFlyout>
+                        </FlyoutBase.ContextFlyout>
                         <CheckBox IsChecked="{Binding AllIncluded}" IsEnabled="{Binding HasChanges}" />
                         <Label Grid.Column="1" Text="{Binding ChangedFilesHeader}" Style="{StaticResource SectionHeader}" />
                     </Grid>

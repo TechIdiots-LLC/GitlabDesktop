@@ -40,6 +40,9 @@ public sealed partial class MainViewModel
 
     public bool HasChanges => ChangedFiles.Count > 0;
 
+    /// <summary>The count shown on the Changes tab.</summary>
+    public int ChangedFilesCount => ChangedFiles.Count;
+
     public string CommitButtonText => IsAmending ? "Amend last commit" : $"Commit to {Status?.Branch ?? "HEAD"}";
 
     public bool CanCommit => Repo is not null && !string.IsNullOrWhiteSpace(CommitSummary) &&
@@ -62,6 +65,7 @@ public sealed partial class MainViewModel
         }
         OnPropertyChanged(nameof(ChangedFilesHeader));
         OnPropertyChanged(nameof(HasChanges));
+        OnPropertyChanged(nameof(ChangedFilesCount));
         UpdateIncludedState();
 
         var reselect = ChangedFiles.FirstOrDefault(f => f.Change.Path + "|" + f.Change.Kind == selectedKey)

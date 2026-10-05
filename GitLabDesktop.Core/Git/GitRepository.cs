@@ -36,14 +36,19 @@ public sealed partial class GitRepository(GitRunner git, string path)
     /// <param name="recurseSubmodules">
     /// Also clone the submodules. git's own submodule.recurse setting doesn't apply to clone, so this is passed explicitly.
     /// </param>
-    public static Task CloneAsync(GitRunner git, string url, string targetDir, bool recurseSubmodules = true, CancellationToken ct = default)
+    /// <param name="progress">
+    /// Receives git's progress lines as they arrive (see <see cref="GitProgress.Parse"/>); git only writes them when asked.
+    /// </param>
+    public static Task CloneAsync(GitRunner git, string url, string targetDir, bool recurseSubmodules = true,
+        CancellationToken ct = default, Action<string>? progress = null)
     {
         var parent = System.IO.Path.GetDirectoryName(targetDir)!;
         Directory.CreateDirectory(parent);
         List<string> args = ["clone"];
+        if (progress is not null) args.Add("--progress");
         if (recurseSubmodules) args.Add("--recurse-submodules");
         args.AddRange(["--", url, targetDir]);
-        return git.RunAsync(parent, args, ct: ct);
+        return git.RunAsync(parent, args, ct: ct, progress: progress);
     }
 
     /// <summary>

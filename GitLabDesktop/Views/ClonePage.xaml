@@ -56,10 +56,12 @@
                IsVisible="{Binding Error, Converter={StaticResource IsNotNullOrEmpty}}" />
 
         <Grid Grid.Row="7" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-            <HorizontalStackLayout Spacing="8" IsVisible="{Binding IsBusy}">
-                <ActivityIndicator IsRunning="{Binding IsBusy}" HeightRequest="20" WidthRequest="20" />
-                <Label Text="Cloning…" VerticalOptions="Center" />
-            </HorizontalStackLayout>
+            <!-- git's own progress: "Receiving objects: 45% (450/1000), 1.20 MiB | 2.00 MiB/s" -->
+            <VerticalStackLayout Spacing="4" IsVisible="{Binding IsBusy}" VerticalOptions="Center">
+                <Label Text="{Binding CloneStatus}" FontSize="12" LineBreakMode="TailTruncation"
+                       TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
+                <ProgressBar Progress="{Binding CloneProgress}" ProgressColor="{StaticResource Primary}" />
+            </VerticalStackLayout>
             <Button Grid.Column="1" Text="Cancel" Command="{Binding CloseCommand}" Style="{StaticResource SecondaryButton}" />
             <Button Grid.Column="2" Text="Clone" Command="{Binding CloneCommand}"
                     IsEnabled="{Binding IsBusy, Converter={StaticResource InvertBool}}" />

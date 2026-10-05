@@ -53,6 +53,30 @@ public sealed partial class CloneViewModel : ModalViewModel<string?>
     [ObservableProperty] private string _localPath = "";
     [ObservableProperty] private bool _useSsh;
 
+    [ObservableProperty] private string _cloneStatus = "";
+    [ObservableProperty] private double _cloneProgress;
+
+    long _lastProgressTicks;
+
+    /// <summary>
+    /// git's progress lines, from the process reader's thread. Updates at most ten times a second (git redraws far more
+    /// often), except for a new phase, so each phase's first and last lines aren't lost.
+    /// </summary>
+    void OnCloneProgress(string line)
+    {
+        if (GitProgress.Parse(line) is not { } p) return;
+        var now = Environment.TickCount64;
+        var newPhase = !p.Status.StartsWith(CloneStatus.Split(':')[0], StringComparison.Ordinal);
+        if (!newPhase && !p.Status.Contains("100%") && now - Interlocked.Read(ref _lastProgressTicks) < 100) return;
+        Interlocked.Exchange(ref _lastProgressTicks, now);
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            CloneStatus = p.Status;
+            // A submodule starts its own clone: let the bar run again rather than sit at 100%
+            if (p.Fraction is { } f) CloneProgress = f;
+        });
+    }
+
     /// <summary>Starts as git's submodule.recurse setting (Options › Repositories); can be changed for this clone.</summary>
     [ObservableProperty] private bool _recurseSubmodules;
 
@@ -129,6 +153,8 @@ public sealed partial class CloneViewModel : ModalViewModel<string?>
         }
         IsBusy = true;
         Error = null;
+        CloneStatus = "Connecting…";
+        CloneProgress = 0;
         _cloneCts = new CancellationTokenSource();
         try
         {
@@ -136,7 +162,7 @@ public sealed partial class CloneViewModel : ModalViewModel<string?>
             {
                 try
                 {
-                    await GitRepository.CloneAsync(_git, Url.Trim(), LocalPath, RecurseSubmodules, _cloneCts.Token);
+                    await GitRepository.CloneAsync(_git, Url.Trim(), LocalPath, RecurseSubmodules, _cloneCts.Token, OnCloneProgress);
                     break;
                 }
                 catch (GitException ex) when (GitSignInService.IsAuthenticationFailure(ex))

@@ -38,13 +38,14 @@ public sealed class GitRunner
         IEnumerable<string> args,
         string? stdin = null,
         bool throwOnError = true,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        Action<string>? progress = null)
     {
         var psi = CreateStartInfo(workingDirectory, args, stdin is not null);
         using var proc = Start(psi);
 
         var stdoutTask = proc.StandardOutput.ReadToEndAsync(ct);
-        var stderrTask = proc.StandardError.ReadToEndAsync(ct);
+        var stderrTask = progress is null ? proc.StandardError.ReadToEndAsync(ct) : ReadProgressAsync(proc.StandardError, progress, ct);
         if (stdin is not null)
         {
             await proc.StandardInput.WriteAsync(stdin.AsMemory(), ct);
@@ -62,6 +63,40 @@ public sealed class GitRunner
             throw new GitException(msg.Trim(), result);
         }
         return result;
+    }
+
+    /// <summary>
+    /// Reads git's standard error as it is written, passing each progress update to <paramref name="progress"/>. Git
+    /// redraws a progress line in place with a carriage return, so every redraw is reported but only a line's last
+    /// version (ended by a newline) is kept for the returned text, as a terminal would show it.
+    /// </summary>
+    static async Task<string> ReadProgressAsync(StreamReader stderr, Action<string> progress, CancellationToken ct)
+    {
+        var kept = new StringBuilder();
+        var line = new StringBuilder();
+        var buffer = new char[1024];
+        int n;
+        while ((n = await stderr.ReadAsync(buffer.AsMemory(), ct)) > 0)
+        {
+            for (int i = 0; i < n; i++)
+            {
+                var c = buffer[i];
+                if (c is not ('\r' or '\n'))
+                {
+                    line.Append(c);
+                    continue;
+                }
+                if (line.Length > 0) progress(line.ToString());
+                if (c == '\n') kept.Append(line).Append('\n');
+                line.Clear();
+            }
+        }
+        if (line.Length > 0)
+        {
+            progress(line.ToString());
+            kept.Append(line);
+        }
+        return kept.ToString();
     }
 
     /// <summary>

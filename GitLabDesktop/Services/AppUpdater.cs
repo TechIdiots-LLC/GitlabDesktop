@@ -18,6 +18,9 @@ public sealed class AppUpdater(DialogService dialogs)
     const string GitLabProject = "techidiots-llc/gitlabdesktop";
     const string GitHubRepo = "TechIdiots-LLC/GitlabDesktop";
 
+    /// <summary>The user guide (docs/ in this app's repository, rendered by GitLab).</summary>
+    public const string DocumentationUrl = $"{GitLabServer}/{GitLabProject}/-/blob/main/docs/index.md";
+
     const string AutoCheckKey = "update_auto_check";
     const string PrereleaseKey = "update_include_prereleases";
     const string SkippedKey = "update_skipped_version";

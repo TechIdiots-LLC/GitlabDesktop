@@ -29,9 +29,9 @@
                                     <Label Text="{Binding ScopeText}" IsVisible="{Binding HasScopeText}" LineBreakMode="MiddleTruncation" />
 
                                     <Label Text="Server URL" Style="{StaticResource SecondaryText}" IsVisible="{Binding IsEditableServer}" />
-                                    <Entry Text="{Binding BaseUrl}" Placeholder="https://gitlab.example.com" Keyboard="Url" IsVisible="{Binding IsEditableServer}" />
+                                    <Entry Text="{Binding BaseUrl}" Placeholder="{Binding ServerPlaceholder}" Keyboard="Url" IsVisible="{Binding IsEditableServer}" />
 
-                                    <Label Text="Username (optional with an access token)" Style="{StaticResource SecondaryText}" />
+                                    <Label Text="{Binding UserNameLabel}" Style="{StaticResource SecondaryText}" />
                                     <Entry Text="{Binding UserName}" Placeholder="Username" />
 
                                     <Label Text="{Binding SecretHelp}" Style="{StaticResource SecondaryText}" />
@@ -54,6 +54,8 @@
                 <HorizontalStackLayout Spacing="8">
                     <Button Text="+ Add GitLab account" Command="{Binding AddGitLabAccountCommand}" Style="{StaticResource SecondaryButton}" />
                     <Button Text="+ Add GitHub account" Command="{Binding AddGitHubAccountCommand}" IsVisible="{Binding CanAddGitHub}"
+                            Style="{StaticResource SecondaryButton}" />
+                    <Button Text="+ Add Git server account" Command="{Binding AddGitServerAccountCommand}"
                             Style="{StaticResource SecondaryButton}" />
                 </HorizontalStackLayout>
 

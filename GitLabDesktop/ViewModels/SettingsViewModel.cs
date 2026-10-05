@@ -60,6 +60,11 @@ public sealed partial class SettingsViewModel : ModalViewModel<bool>
             Accounts.Add(new AccountViewModel(new HostAccount { Kind = HostingKind.GitHub, BaseUrl = AppSettings.GitHubUrl }, _hosting, RemoveAccount));
     }
 
+    /// <summary>Any other server git reaches over HTTPS: a sign-in for git only, with no merge requests or CI.</summary>
+    [RelayCommand]
+    void AddGitServerAccount()
+        => Accounts.Add(new AccountViewModel(new HostAccount { Kind = HostingKind.Unknown }, _hosting, RemoveAccount));
+
     void RemoveAccount(AccountViewModel account) => Accounts.Remove(account);
 
     public string CurrentVersionText => $"Installed version: {AppUpdater.CurrentVersion}. Help › Check for updates checks now.";
@@ -144,10 +149,12 @@ public sealed partial class SettingsViewModel : ModalViewModel<bool>
     async Task Save()
     {
         var accounts = Accounts.Select(a => a.ToAccount()).ToList();
-        var bad = accounts.FirstOrDefault(a => a.Kind == HostingKind.GitLab && a.Repository is null && !Uri.TryCreate(a.BaseUrl, UriKind.Absolute, out _));
+        var bad = accounts.FirstOrDefault(a => a.Kind != HostingKind.GitHub && a.Repository is null && !Uri.TryCreate(a.BaseUrl, UriKind.Absolute, out _));
         if (bad is not null)
         {
-            Error = "Each GitLab account needs a server URL, e.g. https://gitlab.example.com.";
+            Error = bad.Kind == HostingKind.GitLab
+                ? "Each GitLab account needs a server URL, e.g. https://gitlab.example.com."
+                : "Each Git server account needs a server URL, e.g. https://git.example.com.";
             return;
         }
         var duplicate = accounts.GroupBy(a => a.Repository ?? a.Host, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1);

@@ -137,6 +137,9 @@
         </MenuBarItem>
 
         <MenuBarItem Text="Help">
+            <MenuFlyoutItem Text="Documentation" Clicked="OnDocumentationClicked">
+                <MenuFlyoutItem.KeyboardAccelerators><KeyboardAccelerator Key="F1" /></MenuFlyoutItem.KeyboardAccelerators>
+            </MenuFlyoutItem>
             <MenuFlyoutItem Text="Check for updates…" Clicked="OnCheckForUpdatesClicked" />
             <MenuFlyoutSeparator />
             <MenuFlyoutItem Text="Git command log" Command="{Binding ShowCommandLogCommand}" />

@@ -45,8 +45,13 @@ public sealed partial class AccountViewModel : ObservableObject
     /// <summary>GitLab servers and github.com have a token page this app can open with the right scopes.</summary>
     public bool CanCreateToken => IsGitLab || (Kind == HostingKind.GitHub && HostAccount.SameHost(BaseUrl, AppSettings.GitHubUrl));
 
-    /// <summary>A whole-server GitLab account, the only kind whose URL is typed in (GitHub's is fixed; others come from git).</summary>
-    public bool IsEditableServer => IsGitLab && _repository is null;
+    /// <summary>A whole-server GitLab or other git server account, whose URL is typed in (github.com's is fixed; per-repository ones come from git).</summary>
+    public bool IsEditableServer => (IsGitLab || Kind == HostingKind.Unknown) && _repository is null;
+
+    public string ServerPlaceholder => IsGitLab ? "https://gitlab.example.com" : "https://git.example.com";
+
+    // Other servers usually want a real username with a token; GitLab and GitHub accept any.
+    public string UserNameLabel => IsHosting ? "Username (optional with an access token)" : "Username";
 
     /// <summary>Whole-server GitLab and github.com accounts are also the app's API sign-in.</summary>
     public bool UsesApi => ToAccount().UsesApi;

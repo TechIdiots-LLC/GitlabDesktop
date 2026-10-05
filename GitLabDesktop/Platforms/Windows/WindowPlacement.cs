@@ -24,6 +24,10 @@ static class WindowPlacement
             attached = true;
             var appWindow = native.AppWindow;
 
+            // The multi-size icon (16-256 px) instead of MAUI's single 64 px appicon.ico, for a crisp title bar and taskbar.
+            var icon = Path.Combine(AppContext.BaseDirectory, "GitLabDesktop.ico");
+            if (File.Exists(icon)) appWindow.SetIcon(icon);
+
             // The restored (not maximized/minimized) bounds, so un-maximizing next time returns to them. Taken from
             // Restore, not the window: a window restored as maximized already reports its maximized size.
             var normal = Restore(appWindow);

@@ -3,6 +3,7 @@
 ## master
 ### ✨ Features and improvements
 - _...Add new stuff here..._
+- New GitLab Desktop logo: the app, installer, taskbar and Start menu icons (sharp from 16 to 256 px on Windows), the macOS icon, the Android/iOS launcher icon and splash screen, and the welcome screen.
 
 ### 🐞 Bug fixes
 - _...Add new stuff here..._

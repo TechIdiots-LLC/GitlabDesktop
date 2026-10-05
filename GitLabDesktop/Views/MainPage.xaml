@@ -222,6 +222,7 @@
         <!-- ── Welcome (no repository) ─────────────────────────────────────── -->
         <VerticalStackLayout Grid.Row="2" IsVisible="{Binding NoRepository}" Spacing="12"
                              HorizontalOptions="Center" VerticalOptions="Center" WidthRequest="380">
+            <Image Source="logo.png" WidthRequest="128" HeightRequest="128" HorizontalOptions="Center" Margin="0,0,0,8" />
             <Label Text="Let's get started!" FontSize="26" FontAttributes="Bold" HorizontalOptions="Center" />
             <Label Text="Add a repository to GitLab Desktop to start collaborating" Style="{StaticResource SecondaryText}"
                    FontSize="14" HorizontalOptions="Center" Margin="0,0,0,12" />

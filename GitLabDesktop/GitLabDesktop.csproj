@@ -53,10 +53,37 @@
     <ProjectReference Include="..\GitLabDesktop.Core\GitLabDesktop.Core.csproj" />
   </ItemGroup>
 
+  <!--
+    App icon, from the logo in RIEI-Logos/GitlabDesktop. Both are named "appicon" so the generated files keep the names
+    the platforms look for (e.g. Android's @mipmap/appicon, which the manifest uses).
+    Desktop (Windows, macOS): the gear on a transparent background, so the icon is the gear's own shape.
+    Mobile (Android, iOS): those need an opaque square (Android masks it to a circle or squircle, iOS refuses
+    transparency), so the gear sits inside the safe zone on the logo's navy.
+  -->
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows' Or $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">
+    <MauiIcon Include="Resources\AppIcon\Desktop\appicon.png" />
+  </ItemGroup>
+
+  <!--
+    Windows: MAUI's generated appicon.ico holds a single 64 px image, which blurs in Explorer's large views and muddies
+    at 16 px. GitLabDesktop.ico has 16-256 px images; it is the exe's icon, the window/taskbar icon
+    (Platforms/Windows/WindowPlacement.cs) and the installer's icon (build/installer.nsi via CI).
+  -->
+  <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
+    <ApplicationIcon>Resources\AppIcon\Desktop\GitLabDesktop.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
+    <Content Include="Resources\AppIcon\Desktop\GitLabDesktop.ico" Link="GitLabDesktop.ico" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' Or $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
+    <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.png" ForegroundScale="0.62" Color="#0F2D4A" />
+  </ItemGroup>
+
   <ItemGroup>
-    <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#FC6D26" />
-    <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#FC6D26" BaseSize="128,128" />
+    <MauiSplashScreen Include="Resources\Splash\splash.png" Color="#0F2D4A" BaseSize="160,160" />
     <MauiImage Include="Resources\Images\*" />
+    <!-- The logo on the welcome screen; 487 px source covers up to 3x at this size -->
+    <MauiImage Update="Resources\Images\logo.png" BaseSize="128,128" />
     <MauiFont Include="Resources\Fonts\*" />
     <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>

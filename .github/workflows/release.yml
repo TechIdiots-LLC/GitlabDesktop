@@ -131,7 +131,7 @@ jobs:
           $setup = "./GitLabDesktop-v${{ needs.release-check.outputs.version }}-${{ matrix.rid }}-setup.exe"
           ./build/Build-Installer.ps1 -SourceDir "./publish/${{ matrix.rid }}" -AppName "GitLab Desktop" -AppExe GitLabDesktop.exe `
             -Version "${{ needs.release-check.outputs.version }}" -Arch ("${{ matrix.rid }}" -replace '^win-', '') `
-            -Icon "./publish/${{ matrix.rid }}/appicon.ico" -OutFile $setup
+            -Icon "./publish/${{ matrix.rid }}/GitLabDesktop.ico" -OutFile $setup
           ./build/Sign-Files.ps1 -Path $setup
 
       - name: Upload build artifact (${{ matrix.rid }})

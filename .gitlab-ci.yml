@@ -196,7 +196,7 @@ release-windows:
     # NSIS installer (Start Menu shortcut, uninstaller) alongside the portable zip
     - $setup = "./release-files/GitLabDesktop-v$env:RELEASE_VERSION-$env:RID-setup.exe"
     - ./build/Build-Installer.ps1 -SourceDir ./publish/$env:RID -AppName "GitLab Desktop" -AppExe GitLabDesktop.exe
-        -Version $env:RELEASE_VERSION -Arch ($env:RID -replace '^win-', '') -Icon ./publish/$env:RID/appicon.ico -OutFile $setup
+        -Version $env:RELEASE_VERSION -Arch ($env:RID -replace '^win-', '') -Icon ./publish/$env:RID/GitLabDesktop.ico -OutFile $setup
     - ./build/Sign-Files.ps1 -Path $setup
   artifacts:
     paths:

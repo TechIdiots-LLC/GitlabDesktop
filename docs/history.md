@@ -1,0 +1,33 @@
+# History
+
+The **History** tab (View › History, Ctrl+2) lists the current branch's commits, newest first. More load as you
+scroll.
+
+![The History tab](images/history.png)
+
+- Tags are shown as labels on their commit.
+- Commits that haven't been pushed yet have an **↑** marker.
+- Click a commit to see its summary, description, author, date and SHA. The files it changed appear in the middle
+  column, and the selected file's diff on the right. Changed images are shown as
+  [pictures](making-changes.md#image-changes).
+
+The middle column can be resized by dragging its divider, and **Full width** (Ctrl+3) hides both lists.
+
+## Commit actions
+
+Right-click a commit for:
+
+| Item | What it does |
+| --- | --- |
+| **Amend commit…** | Edit the most recent commit from the Changes tab. If it was already pushed, you're warned that amending rewrites history and needs a force push. |
+| **Reset to commit…** | Moves the branch back to this commit. Later commits are undone, but their changes are kept as uncommitted changes. |
+| **Checkout commit** | Checks out this commit without a branch (a "detached HEAD"). Create a branch if you want to keep new commits made there. |
+| **Revert changes in commit** | Makes a new commit that undoes this one. |
+| **Create branch from commit** | A new branch starting at this commit. |
+| **Create tag…** | Tags this commit. |
+| **Cherry-pick commit…** | Applies this commit's changes onto the current branch. |
+| **Copy SHA** / **Copy tag** | Copies the commit's full SHA or its tag. |
+| **View commit in browser** | Opens the commit on GitLab, GitHub or the server. |
+
+If a revert or cherry-pick stops with conflicts, see
+[Conflicts](branches-and-requests.md#conflicts).

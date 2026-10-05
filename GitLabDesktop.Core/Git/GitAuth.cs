@@ -1,8 +1,40 @@
+using System.Text;
+
 namespace GitLabDesktop.Core.Git;
+
+/// <summary>A username and password or token for git over HTTPS, for a whole server or one repository URL.</summary>
+public sealed record GitCredential(string Url, bool ForRepository, string UserName, string Secret);
 
 /// <summary>Recognising git authentication failures and the HTTPS server they came from.</summary>
 public static class GitAuth
 {
+    /// <summary>
+    /// Git config that authenticates HTTPS remotes with an Authorization header scoped by http.&lt;url&gt;.extraHeader,
+    /// so a secret is only ever sent to its own server (or repository). A later credential for the same server wins.
+    /// </summary>
+    public static IReadOnlyList<KeyValuePair<string, string>> ExtraHeaderConfig(IEnumerable<GitCredential> credentials)
+    {
+        static string Header(GitCredential c)
+            => "Authorization: Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes($"{c.UserName}:{c.Secret}"));
+
+        var list = credentials.Where(c => c.Secret.Length > 0).ToList();
+        var servers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var c in list.Where(c => !c.ForRepository))
+        {
+            if (HttpServer(c.Url) is { } server) servers[server] = Header(c);
+        }
+
+        // Repository credentials first. For each URL git keeps the most specific match seen so far and skips later, less
+        // specific ones, so a repository's header shuts out its server's header instead of both being sent. (Resetting
+        // with an empty value isn't an option: Windows drops environment variables with empty values.)
+        var config = list
+            .Where(c => c.ForRepository)
+            .Select(c => new KeyValuePair<string, string>($"http.{c.Url}.extraHeader", Header(c)))
+            .ToList();
+        config.AddRange(servers.Select(s => new KeyValuePair<string, string>($"http.{s.Key}/.extraHeader", s.Value)));
+        return config;
+    }
+
     // What git, Git Credential Manager, GitLab and GitHub print when a login is missing, wrong or not allowed.
     static readonly string[] Markers =
     [

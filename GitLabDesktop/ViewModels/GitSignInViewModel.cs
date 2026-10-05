@@ -5,8 +5,8 @@ using GitLabDesktop.Core.Hosting;
 
 namespace GitLabDesktop.ViewModels;
 
-/// <summary>What the user entered in the git sign-in dialog.</summary>
-public sealed record GitSignInInput(string UserName, string Secret, bool Remember, bool ThisRepositoryOnly, bool UseForApi);
+/// <summary>What the user entered in the git sign-in dialog. A null username means an access token without one.</summary>
+public sealed record GitSignInInput(string? UserName, string Secret, bool Remember, bool ThisRepositoryOnly);
 
 /// <summary>
 /// Asks for a username and password or access token after git could not authenticate to an HTTPS remote.
@@ -15,27 +15,24 @@ public sealed record GitSignInInput(string UserName, string Secret, bool Remembe
 public sealed partial class GitSignInViewModel : ModalViewModel<GitSignInInput?>
 {
     readonly HostedRemote? _remote;
-    bool _useForApiTouched;
 
+    /// <param name="rejected">The title of the account git just used and the server rejected, if any.</param>
+    /// <param name="serverUsesApi">Whether the server's account is also the app's API sign-in (GitLab, github.com).</param>
     public GitSignInViewModel(string server, HostedRemote? remote, string? repositoryName, string? currentUser,
-        bool hadLogin, string? failingAccountTitle, bool canUseForApi, string gitError)
+        string? rejected, bool serverUsesApi, string gitError)
     {
         _remote = remote;
         Host = new Uri(server).Host;
         RepositoryName = repositoryName;
         GitError = gitError.Trim();
-        CanUseForApi = canUseForApi;
+        ServerUsesApi = serverUsesApi;
         _userName = currentUser ?? "";
 
-        Heading = hadLogin || failingAccountTitle is not null ? $"Sign-in to {Host} failed" : $"Sign in to {Host}";
-        Message = (hadLogin, failingAccountTitle) switch
-        {
-            (true, _) => $"{Host} rejected the saved sign-in{(currentUser is null ? "" : $" for {currentUser}")}. " +
-                         "Enter a new password or access token, or cancel.",
-            (_, { } title) => $"{Host} rejected the access token from your {title} account. " +
-                              "Enter another password or access token, or cancel.",
-            _ => $"Git needs a username and a password or access token to reach {Host}.",
-        };
+        Heading = rejected is not null ? $"Sign-in to {Host} failed" : $"Sign in to {Host}";
+        Message = rejected is not null
+            ? $"{Host} rejected the sign-in from your {rejected} account{(currentUser is null ? "" : $" ({currentUser})")}. " +
+              "Enter a new password or access token, or cancel."
+            : $"Git needs a username and a password or access token to reach {Host}.";
     }
 
     protected override GitSignInInput? CancelledResult => null;
@@ -46,14 +43,17 @@ public sealed partial class GitSignInViewModel : ModalViewModel<GitSignInInput?>
     public string Heading { get; }
     public string Message { get; }
     public string GitError { get; }
-    public bool CanUseForApi { get; }
+    public bool ServerUsesApi { get; }
 
     public string AllRepositoriesText => $"All repositories on {Host}";
     public string ThisRepositoryText => $"Only this repository ({RepositoryName})";
 
-    public string UseForApiText => _remote?.Kind == HostingKind.GitHub
-        ? "Also use this token for pull requests and checks status"
-        : "Also use this token for merge requests and pipeline status";
+    /// <summary>Shown while the sign-in is for the whole server and that account is also the API sign-in.</summary>
+    public bool ShowApiNote => ServerUsesApi && ForAllRepositories;
+
+    public string ApiNote => _remote?.Kind == HostingKind.GitHub
+        ? "This account also shows pull requests and checks status, which need an access token rather than a password."
+        : "This account also shows merge requests and pipeline status, which need an access token rather than a password.";
 
     public string SecretHelp => _remote?.Kind switch
     {
@@ -67,28 +67,14 @@ public sealed partial class GitSignInViewModel : ModalViewModel<GitSignInInput?>
     [ObservableProperty] private string _userName;
     [ObservableProperty] private string _secret = "";
     [ObservableProperty] private bool _remember = true;
-    [ObservableProperty] private bool _forAllRepositories = true;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowApiNote))]
+    private bool _forAllRepositories = true;
+
     [ObservableProperty] private bool _forThisRepository;
-    [ObservableProperty] private bool _useForApi;
 
     partial void OnForAllRepositoriesChanged(bool value) { if (value) ForThisRepository = false; }
     partial void OnForThisRepositoryChanged(bool value) { if (value) ForAllRepositories = false; }
-
-    // Suggest API use for a token, until the user decides for themselves.
-    partial void OnSecretChanged(string value)
-    {
-        if (!_useForApiTouched) SetUseForApi(CanUseForApi && GitAuth.LooksLikeToken(value));
-    }
-
-    bool _settingUseForApi;
-    void SetUseForApi(bool value)
-    {
-        _settingUseForApi = true;
-        UseForApi = value;
-        _settingUseForApi = false;
-    }
-
-    partial void OnUseForApiChanged(bool value) { if (!_settingUseForApi) _useForApiTouched = true; }
 
     [RelayCommand]
     async Task CreateToken()
@@ -111,17 +97,13 @@ public sealed partial class GitSignInViewModel : ModalViewModel<GitSignInInput?>
             return;
         }
         var user = UserName.Trim();
-        if (user.Length == 0)
+        if (user.Length == 0 && !GitAuth.LooksLikeToken(secret) && _remote?.Kind != HostingKind.GitHub)
         {
-            if (!GitAuth.LooksLikeToken(secret) && _remote?.Kind != HostingKind.GitHub)
-            {
-                Error = "Enter your username to sign in with a password.";
-                return;
-            }
-            // Both hosts accept any username with a token; these are the conventional ones.
-            user = _remote?.Kind == HostingKind.GitHub ? "x-access-token" : "oauth2";
+            Error = "Enter your username to sign in with a password.";
+            return;
         }
-        Complete(new GitSignInInput(user, secret, Remember, ForThisRepository && HasRepositoryName, CanUseForApi && UseForApi));
+        // Without a username, git sends the token with the host's conventional one (see HostAccount.GitUserName).
+        Complete(new GitSignInInput(user.Length == 0 ? null : user, secret, Remember, ForThisRepository && HasRepositoryName));
     }
 
     [RelayCommand]

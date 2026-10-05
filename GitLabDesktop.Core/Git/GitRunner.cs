@@ -61,8 +61,10 @@ public sealed class GitRunner
         foreach (var a in args)
             psi.ArgumentList.Add(a);
 
-        // Never block on a terminal credential prompt; GUI credential helpers still work.
+        // Never prompt for credentials, in a terminal or in Git Credential Manager's window: the app asks for a sign-in
+        // itself when git reports an authentication failure. Credentials GCM already stored are still used.
         psi.Environment["GIT_TERMINAL_PROMPT"] = "0";
+        psi.Environment["GCM_INTERACTIVE"] = "never";
         psi.Environment["GIT_OPTIONAL_LOCKS"] = "0";
         var config = ConfigProvider?.Invoke();
         if (config is { Count: > 0 })

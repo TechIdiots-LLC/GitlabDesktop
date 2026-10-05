@@ -2,7 +2,6 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:GitLabDesktop.ViewModels"
-             xmlns:services="clr-namespace:GitLabDesktop.Services"
              x:Class="GitLabDesktop.Views.SettingsPage"
              x:DataType="vm:SettingsViewModel"
              BackgroundColor="{AppThemeBinding Light={StaticResource PaneLight}, Dark={StaticResource PaneDark}}">
@@ -14,7 +13,7 @@
 
                 <Label Text="Accounts" Style="{StaticResource SectionHeader}" />
                 <Label Style="{StaticResource SecondaryText}"
-                       Text="Repositories are matched to an account by their remote's server. With an account the app can show and create merge/pull requests and CI status; without one, it still opens pages in your browser. Servers without an account are identified automatically." />
+                       Text="An account signs git in to its server over HTTPS. On a GitLab server or GitHub it also lets the app show and create merge/pull requests and CI status; without one, the app still opens pages in your browser. When git asks you to sign in, the account is added or updated here." />
 
                 <VerticalStackLayout Spacing="8" BindableLayout.ItemsSource="{Binding Accounts}">
                     <BindableLayout.ItemTemplate>
@@ -27,21 +26,21 @@
                                         <Label Text="{Binding KindName}" FontAttributes="Bold" VerticalOptions="Center" />
                                         <Button Grid.Column="1" Text="Remove" Command="{Binding RemoveCommand}" Style="{StaticResource SecondaryButton}" Padding="8,2" />
                                     </Grid>
+                                    <Label Text="{Binding ScopeText}" IsVisible="{Binding HasScopeText}" LineBreakMode="MiddleTruncation" />
 
-                                    <Label Text="Server URL" Style="{StaticResource SecondaryText}" IsVisible="{Binding IsGitLab}" />
-                                    <Entry Text="{Binding BaseUrl}" Placeholder="https://gitlab.example.com" Keyboard="Url" IsVisible="{Binding IsGitLab}" />
+                                    <Label Text="Server URL" Style="{StaticResource SecondaryText}" IsVisible="{Binding IsEditableServer}" />
+                                    <Entry Text="{Binding BaseUrl}" Placeholder="https://gitlab.example.com" Keyboard="Url" IsVisible="{Binding IsEditableServer}" />
 
-                                    <Label Text="{Binding TokenHelp}" Style="{StaticResource SecondaryText}" />
+                                    <Label Text="Username (optional with an access token)" Style="{StaticResource SecondaryText}" />
+                                    <Entry Text="{Binding UserName}" Placeholder="Username" />
+
+                                    <Label Text="{Binding SecretHelp}" Style="{StaticResource SecondaryText}" />
                                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                        <Entry Text="{Binding Token}" IsPassword="True" Placeholder="Personal access token" />
-                                        <Button Grid.Column="1" Text="Create token…" Command="{Binding CreateTokenCommand}" Style="{StaticResource SecondaryButton}" />
+                                        <Entry Text="{Binding Secret}" IsPassword="True" Placeholder="Password or access token" />
+                                        <Button Grid.Column="1" Text="Create token…" Command="{Binding CreateTokenCommand}" IsVisible="{Binding CanCreateToken}"
+                                                Style="{StaticResource SecondaryButton}" />
                                     </Grid>
-                                    <Grid ColumnDefinitions="Auto,*">
-                                        <CheckBox IsChecked="{Binding UseTokenForGit}" />
-                                        <Label Grid.Column="1" VerticalOptions="Center"
-                                               Text="Also use this token for git push/pull/clone over HTTPS on this server" />
-                                    </Grid>
-                                    <HorizontalStackLayout Spacing="10">
+                                    <HorizontalStackLayout Spacing="10" IsVisible="{Binding UsesApi}">
                                         <Button Text="Test connection" Command="{Binding TestCommand}" Style="{StaticResource SecondaryButton}" />
                                         <ActivityIndicator IsRunning="{Binding IsTesting}" IsVisible="{Binding IsTesting}" HeightRequest="20" WidthRequest="20" />
                                     </HorizontalStackLayout>
@@ -50,24 +49,6 @@
                             </Border>
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
-                </VerticalStackLayout>
-
-                <VerticalStackLayout Spacing="4" IsVisible="{Binding HasGitLogins}" Margin="0,4,0,0">
-                    <Label Text="Saved git sign-ins" Style="{StaticResource SectionHeader}" />
-                    <Label Text="Logins entered when git asked to sign in. They take precedence over account tokens for git."
-                           Style="{StaticResource SecondaryText}" />
-                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding GitLogins}">
-                        <BindableLayout.ItemTemplate>
-                            <DataTemplate x:DataType="services:AppSettings+GitLogin">
-                                <Grid ColumnDefinitions="*,Auto" Padding="0,2">
-                                    <Label Text="{Binding Display}" VerticalOptions="Center" LineBreakMode="MiddleTruncation" />
-                                    <Button Grid.Column="1" Text="Forget" Style="{StaticResource SecondaryButton}" Padding="8,2"
-                                            Command="{Binding ForgetGitLoginCommand, Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, x:DataType=vm:SettingsViewModel}"
-                                            CommandParameter="{Binding .}" />
-                                </Grid>
-                            </DataTemplate>
-                        </BindableLayout.ItemTemplate>
-                    </VerticalStackLayout>
                 </VerticalStackLayout>
 
                 <HorizontalStackLayout Spacing="8">

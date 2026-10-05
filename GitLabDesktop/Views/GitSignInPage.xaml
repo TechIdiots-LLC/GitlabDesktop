@@ -35,10 +35,7 @@
                 <CheckBox IsChecked="{Binding Remember}" />
                 <Label Grid.Column="1" Text="Remember on this computer (stored in secure storage)" VerticalOptions="Center" />
             </Grid>
-            <Grid ColumnDefinitions="Auto,*" IsVisible="{Binding CanUseForApi}">
-                <CheckBox IsChecked="{Binding UseForApi}" />
-                <Label Grid.Column="1" Text="{Binding UseForApiText}" VerticalOptions="Center" />
-            </Grid>
+            <Label Text="{Binding ApiNote}" IsVisible="{Binding ShowApiNote}" Style="{StaticResource SecondaryText}" />
 
             <Label Text="{Binding Error}" TextColor="{StaticResource KindDeleted}"
                    IsVisible="{Binding Error, Converter={StaticResource IsNotNullOrEmpty}}" />

@@ -7,7 +7,7 @@ using GitLabDesktop.Services;
 
 namespace GitLabDesktop.ViewModels;
 
-/// <summary>Options: GitLab/GitHub accounts, repositories folder, git and editor paths. Completes with true when saved.</summary>
+/// <summary>Options: accounts, repositories folder, git and editor paths. Completes with true when saved.</summary>
 public sealed partial class SettingsViewModel : ModalViewModel<bool>
 {
     readonly AppSettings _settings;
@@ -17,7 +17,8 @@ public sealed partial class SettingsViewModel : ModalViewModel<bool>
     {
         _settings = settings;
         _hosting = hosting;
-        foreach (var a in settings.Accounts) Accounts.Add(new AccountViewModel(a, hosting, RemoveAccount));
+        foreach (var a in settings.Accounts.OrderBy(a => a.Host, StringComparer.OrdinalIgnoreCase).ThenBy(a => a.Repository is not null))
+            Accounts.Add(new AccountViewModel(a, hosting, RemoveAccount));
         _repositoriesDirectory = settings.RepositoriesDirectory;
         _autoAddRepositories = settings.AutoAddRepositories;
         _cloneWithSsh = settings.CloneWithSsh;
@@ -27,7 +28,6 @@ public sealed partial class SettingsViewModel : ModalViewModel<bool>
         _editorCommand = settings.EditorCommand;
         _gitExecutable = settings.GitExecutable;
         Accounts.CollectionChanged += (_, _) => OnPropertyChanged(nameof(CanAddGitHub));
-        foreach (var login in settings.SavedGitLogins.OrderBy(l => l.Scope)) GitLogins.Add(login);
     }
 
     protected override bool CancelledResult => false;
@@ -46,12 +46,12 @@ public sealed partial class SettingsViewModel : ModalViewModel<bool>
 
     public ObservableCollection<AccountViewModel> Accounts { get; } = [];
 
-    /// <summary>One GitHub account (github.com); any number of GitLab servers.</summary>
-    public bool CanAddGitHub => Accounts.All(a => a.Kind != HostingKind.GitHub);
+    /// <summary>One github.com account; any number of GitLab servers.</summary>
+    public bool CanAddGitHub => Accounts.All(a => !(a.Kind == HostingKind.GitHub && a.UsesApi));
 
     [RelayCommand]
     void AddGitLabAccount()
-        => Accounts.Add(new AccountViewModel(new HostAccount { Kind = HostingKind.GitLab, UseTokenForGit = true }, _hosting, RemoveAccount));
+        => Accounts.Add(new AccountViewModel(new HostAccount { Kind = HostingKind.GitLab }, _hosting, RemoveAccount));
 
     [RelayCommand]
     void AddGitHubAccount()
@@ -62,21 +62,7 @@ public sealed partial class SettingsViewModel : ModalViewModel<bool>
 
     void RemoveAccount(AccountViewModel account) => Accounts.Remove(account);
 
-    // ── Saved git sign-ins (from the sign-in dialog) ─────────────────────────
-
-    public ObservableCollection<AppSettings.GitLogin> GitLogins { get; } = [];
-    public bool HasGitLogins => GitLogins.Count > 0;
-
     public string CurrentVersionText => $"Installed version: {AppUpdater.CurrentVersion}. Help › Check for updates checks now.";
-
-    /// <summary>Forgets immediately (not on Save): the stored secret is removed from secure storage.</summary>
-    [RelayCommand]
-    void ForgetGitLogin(AppSettings.GitLogin login)
-    {
-        _settings.ForgetGitLogin(login);
-        GitLogins.Remove(login);
-        OnPropertyChanged(nameof(HasGitLogins));
-    }
 
     [RelayCommand]
     async Task TestGit()
@@ -158,16 +144,16 @@ public sealed partial class SettingsViewModel : ModalViewModel<bool>
     async Task Save()
     {
         var accounts = Accounts.Select(a => a.ToAccount()).ToList();
-        var bad = accounts.FirstOrDefault(a => a.Kind == HostingKind.GitLab && !Uri.TryCreate(a.BaseUrl, UriKind.Absolute, out _));
+        var bad = accounts.FirstOrDefault(a => a.Kind == HostingKind.GitLab && a.Repository is null && !Uri.TryCreate(a.BaseUrl, UriKind.Absolute, out _));
         if (bad is not null)
         {
             Error = "Each GitLab account needs a server URL, e.g. https://gitlab.example.com.";
             return;
         }
-        var duplicate = accounts.GroupBy(a => a.Host, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1);
+        var duplicate = accounts.GroupBy(a => a.Repository ?? a.Host, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1);
         if (duplicate is not null)
         {
-            Error = $"There is more than one account for {duplicate.Key}.";
+            Error = $"There is more than one account for {duplicate.First().Title}.";
             return;
         }
 
@@ -178,7 +164,7 @@ public sealed partial class SettingsViewModel : ModalViewModel<bool>
         catch (Exception ex)
         {
             // e.g. the macOS keychain refusing an unsigned app
-            Error = $"Could not store the access tokens securely: {ex.Message}";
+            Error = $"Could not store the passwords and tokens securely: {ex.Message}";
             return;
         }
         _settings.RepositoriesDirectory = RepositoriesDirectory.Trim();

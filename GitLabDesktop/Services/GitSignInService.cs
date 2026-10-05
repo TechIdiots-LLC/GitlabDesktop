@@ -15,8 +15,9 @@ public enum SignInOutcome
 }
 
 /// <summary>
-/// Handles git authentication failures on HTTPS remotes: asks for a username and password or token, stores it for the
-/// server or just the repository, and optionally makes a token the server's API token as well.
+/// Handles git authentication failures on HTTPS remotes: asks for a username and password or token, and stores it as
+/// the account for the server or just the repository. A server's account on GitLab or github.com is also the app's
+/// API sign-in there.
 /// </summary>
 public sealed class GitSignInService(AppSettings settings, HostingRegistry hosting, DialogService dialogs)
 {
@@ -27,46 +28,51 @@ public sealed class GitSignInService(AppSettings settings, HostingRegistry hosti
     {
         if (GitAuth.HttpServer(remoteUrl) is not { } server) return SignInOutcome.NotApplicable;
 
-        // The repository URL git requests use, without user info, as the scope of a repository-only login.
+        // The repository URL git requests use, without user info, as the scope of a repository-only account.
         var uri = new Uri(remoteUrl!);
         var repositoryUrl = server + uri.AbsolutePath.TrimEnd('/');
         var remote = HostedRemote.Parse(remoteUrl, settings.KnownHosts);
-        var existing = settings.FindGitLogin(server, repositoryUrl);
-        var account = settings.Accounts.FirstOrDefault(a => remote?.IsOn(a.BaseUrl) == true);
-        var failingAccount = existing is null && account is { UseTokenForGit: true, Token.Length: > 0 } ? account.Title : null;
-        // A token typed here can also become the server's API token, for GitLab servers and github.com.
-        bool canUseForApi = remote?.Kind == HostingKind.GitLab ||
-                            (remote?.Kind == HostingKind.GitHub && remote.IsOn(AppSettings.GitHubUrl));
+        var existing = settings.FindAccount(server, repositoryUrl);
+        var serverAccount = settings.FindAccount(server);
 
-        var vm = new GitSignInViewModel(server, remote, remote?.ProjectPath, existing?.UserName ?? GitAuth.UserName(remoteUrl),
-            existing is not null, failingAccount, canUseForApi, gitError);
+        var vm = new GitSignInViewModel(server, remote, remote?.ProjectPath,
+            existing?.UserName ?? GitAuth.UserName(remoteUrl),
+            rejected: existing is { Secret.Length: > 0 } ? existing.Title : null,
+            serverUsesApi: serverAccount?.UsesApi ?? IsApiServer(remote),
+            gitError);
         await dialogs.PushModalAsync(new GitSignInPage(vm));
         if (await vm.Result is not { } input) return SignInOutcome.Cancelled;
 
-        await settings.SetGitLoginAsync(
-            new AppSettings.GitLogin(server, input.UserName, input.Secret, input.ThisRepositoryOnly ? repositoryUrl : null),
-            input.Remember);
-
-        if (input.UseForApi && remote is not null)
-            await UseAsApiTokenAsync(remote, input.Secret);
+        var accounts = settings.Accounts.Select(a => a.Clone()).ToList();
+        var account = input.ThisRepositoryOnly
+            ? accounts.FirstOrDefault(a => string.Equals(a.Repository, repositoryUrl, StringComparison.OrdinalIgnoreCase))
+            : accounts.FirstOrDefault(a => a.Repository is null && HostAccount.SameHost(a.BaseUrl, server));
+        if (account is null)
+        {
+            account = new HostAccount
+            {
+                Kind = remote?.Kind ?? HostingKind.Unknown,
+                BaseUrl = ServerBaseUrl(server, remote),
+                Repository = input.ThisRepositoryOnly ? repositoryUrl : null,
+            };
+            accounts.Add(account);
+        }
+        account.UserName = input.UserName;
+        account.Secret = input.Secret;
+        account.Remember = input.Remember;
+        await settings.SaveAccountsAsync(accounts);
+        hosting.Rebuild();
         return SignInOutcome.Retry;
     }
 
-    /// <summary>Creates or updates the account for the remote's server with this token.</summary>
-    async Task UseAsApiTokenAsync(HostedRemote remote, string token)
+    static bool IsApiServer(HostedRemote? remote)
+        => remote?.Kind == HostingKind.GitLab || (remote?.Kind == HostingKind.GitHub && remote.IsOn(AppSettings.GitHubUrl));
+
+    /// <summary>The account URL for a server: github.com, a GitLab server's web root (which may have a path), or the server.</summary>
+    static string ServerBaseUrl(string server, HostedRemote? remote) => remote?.Kind switch
     {
-        var accounts = settings.Accounts.Select(a => a.Clone()).ToList();
-        var account = accounts.FirstOrDefault(a => remote.IsOn(a.BaseUrl));
-        if (account is null)
-        {
-            var baseUrl = remote.Kind == HostingKind.GitHub
-                ? AppSettings.GitHubUrl
-                : remote.WebUrl[..^(remote.ProjectPath.Length + 1)];
-            account = new HostAccount { Kind = remote.Kind, BaseUrl = baseUrl };
-            accounts.Add(account);
-        }
-        account.Token = token;
-        await settings.SaveAccountsAsync(accounts);
-        hosting.Rebuild();
-    }
+        HostingKind.GitHub when remote.IsOn(AppSettings.GitHubUrl) => AppSettings.GitHubUrl,
+        HostingKind.GitLab => remote.WebUrl[..^(remote.ProjectPath.Length + 1)],
+        _ => server,
+    };
 }

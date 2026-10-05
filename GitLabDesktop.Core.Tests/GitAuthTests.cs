@@ -40,4 +40,49 @@ public class GitAuthTests
     [InlineData("ghp_abc", true)]
     [InlineData("hunter2", false)]
     public void TokenShapes(string secret, bool token) => Assert.Equal(token, GitAuth.LooksLikeToken(secret));
+
+    static string Basic(string user, string secret)
+        => "Authorization: Basic " + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"{user}:{secret}"));
+
+    [Fact]
+    public void ExtraHeaderConfigScopesEachSecretToItsServer()
+    {
+        var config = GitAuth.ExtraHeaderConfig(
+        [
+            new GitCredential("https://gitlab.example.com/gitlab", false, "oauth2", "glpat-a"),
+            new GitCredential("https://github.com", false, "x-access-token", "ghp_b"),
+        ]);
+        Assert.Equal(
+        [
+            new("http.https://gitlab.example.com/.extraHeader", Basic("oauth2", "glpat-a")),
+            new("http.https://github.com/.extraHeader", Basic("x-access-token", "ghp_b")),
+        ], config);
+    }
+
+    [Fact]
+    public void ExtraHeaderConfigPutsRepositoryCredentialsFirst()
+    {
+        var config = GitAuth.ExtraHeaderConfig(
+        [
+            new GitCredential("https://gitlab.example.com", false, "me", "server-secret"),
+            new GitCredential("https://gitlab.example.com/g/p.git", true, "bot", "repo-secret"),
+        ]);
+        Assert.Equal("http.https://gitlab.example.com/g/p.git.extraHeader", config[0].Key);
+        Assert.Equal(Basic("bot", "repo-secret"), config[0].Value);
+        Assert.Equal("http.https://gitlab.example.com/.extraHeader", config[1].Key);
+    }
+
+    [Fact]
+    public void ExtraHeaderConfigSkipsEmptySecretsAndKeepsTheLastPerServer()
+    {
+        var config = GitAuth.ExtraHeaderConfig(
+        [
+            new GitCredential("https://gitlab.example.com", false, "oauth2", ""),
+            new GitCredential("https://GITLAB.example.com", false, "old", "1"),
+            new GitCredential("https://gitlab.example.com", false, "new", "2"),
+            new GitCredential("git@gitlab.example.com:g/p.git", false, "ssh", "3"),
+        ]);
+        var only = Assert.Single(config);
+        Assert.Equal(Basic("new", "2"), only.Value);
+    }
 }

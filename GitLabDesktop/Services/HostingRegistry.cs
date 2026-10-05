@@ -14,8 +14,8 @@ public sealed class HostingRegistry(AppSettings settings, IHttpClientFactory htt
 
     public IReadOnlyList<(HostAccount Account, IHostingService Service)> Services => _services;
 
-    /// <summary>Recreates the clients from the saved accounts.</summary>
-    public void Rebuild() => _services = settings.Accounts.Select(a => (a, Create(a))).ToList();
+    /// <summary>Recreates the clients from the accounts that use the API (GitLab servers and github.com).</summary>
+    public void Rebuild() => _services = settings.Accounts.Where(a => a.UsesApi).Select(a => (a, Create(a))).ToList();
 
     public IHostingService Create(HostAccount account)
     {
@@ -23,11 +23,11 @@ public sealed class HostingRegistry(AppSettings settings, IHttpClientFactory htt
         if (account.Kind == HostingKind.GitHub)
         {
             var gh = new GitHubClient(http);
-            gh.Configure(account.Token);
+            gh.Configure(account.Secret);
             return gh;
         }
         var gl = new GitLabClient(http);
-        gl.Configure(account.BaseUrl, account.Token);
+        gl.Configure(account.BaseUrl, account.Secret);
         return gl;
     }
 

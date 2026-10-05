@@ -27,8 +27,8 @@ If none of these settle it, the menus use the host name, only "View on <host>" w
 
 ## Setup
 
-1. Install [Git for Windows](https://git-scm.com/download/win). The app runs the git CLI, so your config, hooks and credential helpers apply.
-2. **File › Options › Accounts**: add each GitLab server and/or GitHub with a personal access token. **Create token…** opens the server's token page with the needed scopes already selected. Tokens are stored in the OS secure storage. Optionally, a token can also be given to git for HTTPS remotes on its own server, through an `http.<server>.extraHeader` setting passed in the environment, so it never appears on a command line. Without an account, the browser links still work.
+1. Install [Git for Windows](https://git-scm.com/download/win). The app runs the git CLI, so your config and hooks apply. Credentials Git Credential Manager already stored are still used, but it never opens its own sign-in window: the app asks instead.
+2. **File › Options › Accounts**: add each GitLab server and/or GitHub with a personal access token. **Create token…** opens the server's token page with the needed scopes already selected. An account signs git in to its server over HTTPS, through an `http.<server>.extraHeader` setting passed in the environment so the secret never appears on a command line, and on GitLab and GitHub it also shows merge/pull requests and CI status. When git needs a sign-in it doesn't have, the app asks for one and saves it as an account, for the whole server or just that repository. Passwords and tokens are stored in the OS secure storage. Without an account, the browser links still work.
 3. **File › Clone repository…** or **Add local repository…**. You can also run `GitLabDesktop.exe <folder>` to open a repository directly.
 
 ## Layout

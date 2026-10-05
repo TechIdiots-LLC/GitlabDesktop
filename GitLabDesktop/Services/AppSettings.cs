@@ -1,28 +1,67 @@
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using GitLabDesktop.Core.Git;
 using GitLabDesktop.Core.Hosting;
 
 namespace GitLabDesktop.Services;
 
-/// <summary>An account on a GitLab server or on GitHub. The token is kept in SecureStorage, not in Preferences.</summary>
+/// <summary>
+/// A sign-in for a server, or for one repository on it: git uses it for HTTPS remotes there, and on a GitLab server or
+/// github.com the app uses it for merge/pull requests and CI status. The secret is kept in SecureStorage, not in
+/// Preferences.
+/// </summary>
 public sealed class HostAccount
 {
+    /// <summary>GitLab, GitHub, or Unknown for any other git server (git only, no API).</summary>
     [JsonConverter(typeof(JsonStringEnumConverter<HostingKind>))]
     public HostingKind Kind { get; set; }
 
     /// <summary>Server URL, e.g. https://gitlab.example.com (GitHub accounts are always https://github.com).</summary>
     public string BaseUrl { get; set; } = "";
 
-    /// <summary>Send the token to git for HTTPS remotes on this server.</summary>
-    public bool UseTokenForGit { get; set; }
+    /// <summary>The repository URL (without user info) for a sign-in that is only for that repository.</summary>
+    public string? Repository { get; set; }
 
-    [JsonIgnore] public string? Token { get; set; }
+    /// <summary>Username for git; empty for an access token, which git sends with the host's conventional username.</summary>
+    public string? UserName { get; set; }
+
+    /// <summary>Password or access token.</summary>
+    [JsonIgnore] public string? Secret { get; set; }
+
+    /// <summary>False for a sign-in kept only until the app exits.</summary>
+    [JsonIgnore] public bool Remember { get; set; } = true;
+
+    /// <summary>The URL this account applies to, and its storage key.</summary>
+    [JsonIgnore] public string Scope => Repository ?? BaseUrl;
 
     [JsonIgnore] public string Host => Uri.TryCreate(BaseUrl, UriKind.Absolute, out var u) ? u.Host : BaseUrl;
-    [JsonIgnore] public string Title => Kind == HostingKind.GitHub ? "GitHub" : $"GitLab ({Host})";
+
+    /// <summary>Whether the secret is also the API token: a whole-server account on a GitLab server or github.com.</summary>
+    [JsonIgnore]
+    public bool UsesApi => Repository is null &&
+                           (Kind == HostingKind.GitLab || (Kind == HostingKind.GitHub && SameHost(BaseUrl, AppSettings.GitHubUrl)));
+
+    [JsonIgnore]
+    public string Title => Repository is not null
+        ? $"{Repository[Math.Min(Repository.Length, BaseUrl.TrimEnd('/').Length + 1)..]} on {Host}"
+        : Kind switch
+        {
+            HostingKind.GitHub when UsesApi => "GitHub",
+            HostingKind.GitLab => $"GitLab ({Host})",
+            _ => Host,
+        };
+
+    /// <summary>The username git sends: the account's, or for a token the one GitHub or GitLab conventionally expects.</summary>
+    [JsonIgnore]
+    public string GitUserName => string.IsNullOrWhiteSpace(UserName)
+        ? (Kind == HostingKind.GitHub ? "x-access-token" : "oauth2")
+        : UserName;
 
     public HostAccount Clone() => (HostAccount)MemberwiseClone();
+
+    public static bool SameHost(string? a, string? b)
+        => Uri.TryCreate(a, UriKind.Absolute, out var ua) && Uri.TryCreate(b, UriKind.Absolute, out var ub) &&
+           string.Equals(ua.Host, ub.Host, StringComparison.OrdinalIgnoreCase) && ua.Port == ub.Port;
 }
 
 /// <summary>User settings. Access tokens live in SecureStorage; everything else in Preferences.</summary>
@@ -95,28 +134,32 @@ public sealed class AppSettings
 
     // ── Accounts ─────────────────────────────────────────────────────────────
 
-    // Cached because SecureStorage is async and git needs the tokens synchronously for every command.
+    // Cached because SecureStorage is async and git needs the secrets synchronously for every command. Replaced, never
+    // modified, so git commands running meanwhile always see a complete list.
     List<HostAccount> _accounts = [];
     bool _accountsLoaded;
 
     public IReadOnlyList<HostAccount> Accounts => _accounts;
 
-    static string TokenKey(string baseUrl) => "token:" + baseUrl;
+    // Server accounts keep the key their API tokens have always had.
+    static string SecretKey(string scope) => "token:" + scope;
 
     public async Task LoadAccountsAsync()
     {
         if (_accountsLoaded) return;
-        try { _accounts = JsonSerializer.Deserialize<List<HostAccount>>(Preferences.Get("accounts", "[]")) ?? []; }
-        catch (JsonException) { _accounts = []; }
+        List<HostAccount> accounts;
+        try { accounts = JsonSerializer.Deserialize<List<HostAccount>>(Preferences.Get("accounts", "[]")) ?? []; }
+        catch (JsonException) { accounts = []; }
 
-        foreach (var a in _accounts)
+        foreach (var a in accounts)
         {
-            try { a.Token = await SecureStorage.Default.GetAsync(TokenKey(a.BaseUrl)); }
+            try { a.Secret = await SecureStorage.Default.GetAsync(SecretKey(a.Scope)); }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[AppSettings] SecureStorage read failed: {ex.Message}"); }
         }
+        _accounts = accounts;
 
         await MigrateSingleGitLabAccountAsync();
-        await LoadGitLoginsAsync();
+        await MigrateGitLoginsAsync();
         _accountsLoaded = true;
     }
 
@@ -128,34 +171,98 @@ public sealed class AppSettings
         string? token = null;
         try { token = await SecureStorage.Default.GetAsync("gitlab_token"); } catch { }
         if (!_accounts.Any(a => a.BaseUrl == url))
-        {
-            _accounts.Add(new HostAccount
-            {
-                Kind = HostingKind.GitLab,
-                BaseUrl = url,
-                Token = token,
-                UseTokenForGit = Preferences.Get("use_token_for_git", true),
-            });
-            await SaveAccountsAsync(_accounts);
-        }
+            await SaveAccountsAsync([.. _accounts, new HostAccount { Kind = HostingKind.GitLab, BaseUrl = url, Secret = token }]);
         Preferences.Remove("gitlab_url");
         Preferences.Remove("use_token_for_git");
         SecureStorage.Default.Remove("gitlab_token");
     }
 
+    /// <summary>
+    /// Up to version 0.1.2, logins from the git sign-in dialog were kept apart from accounts; turn them into accounts.
+    /// Where a GitLab or GitHub account already had a different token, a login with an access token replaces it (git
+    /// was using the login), while a password login is dropped in favour of the token, which the API needs.
+    /// </summary>
+    async Task MigrateGitLoginsAsync()
+    {
+        if (!Preferences.ContainsKey("git_login_scopes")) return;
+        List<string> scopes;
+        try { scopes = JsonSerializer.Deserialize<List<string>>(Preferences.Get("git_login_scopes", "[]")) ?? []; }
+        catch (JsonException) { scopes = []; }
+
+        var accounts = _accounts.Select(a => a.Clone()).ToList();
+        foreach (var scope in scopes)
+        {
+            try
+            {
+                if (await SecureStorage.Default.GetAsync("gitlogin:" + scope) is { } json &&
+                    JsonSerializer.Deserialize<OldGitLogin>(json) is { } login)
+                {
+                    var userName = login.UserName is "oauth2" or "x-access-token" ? null : login.UserName;
+                    var existing = accounts.FirstOrDefault(a => login.Repository is null
+                        ? a.Repository is null && HostAccount.SameHost(a.BaseUrl, login.Server)
+                        : string.Equals(a.Repository, login.Repository, StringComparison.OrdinalIgnoreCase));
+                    if (existing is null)
+                    {
+                        accounts.Add(new HostAccount
+                        {
+                            Kind = KindOf(login.Server),
+                            BaseUrl = login.Server,
+                            Repository = login.Repository,
+                            UserName = userName,
+                            Secret = login.Secret,
+                        });
+                    }
+                    else if (string.IsNullOrEmpty(existing.Secret) || !existing.UsesApi || GitAuth.LooksLikeToken(login.Secret))
+                    {
+                        existing.UserName = userName;
+                        existing.Secret = login.Secret;
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[AppSettings] git login migration failed: {ex.Message}"); }
+            SecureStorage.Default.Remove("gitlogin:" + scope);
+        }
+        await SaveAccountsAsync(accounts);
+        Preferences.Remove("git_login_scopes");
+    }
+
+    sealed record OldGitLogin(string Server, string UserName, string Secret, string? Repository = null);
+
+    /// <summary>The kind of server at a URL, as far as accounts and earlier probes know.</summary>
+    HostingKind KindOf(string url)
+        => HostAccount.SameHost(url, GitHubUrl)
+            ? HostingKind.GitHub
+            : KnownHosts.FirstOrDefault(k => HostAccount.SameHost(k.BaseUrl, url))?.Kind ?? HostingKind.Unknown;
+
+    /// <summary>Saves the accounts: remembered ones in Preferences and SecureStorage, the others only until the app exits.</summary>
     public async Task SaveAccountsAsync(IEnumerable<HostAccount> accounts)
     {
         var list = accounts.Select(a => a.Clone()).ToList();
-        foreach (var gone in _accounts.Where(o => !list.Any(n => n.BaseUrl == o.BaseUrl)))
-            SecureStorage.Default.Remove(TokenKey(gone.BaseUrl));
+        foreach (var gone in _accounts.Where(o => !list.Any(n => string.Equals(n.Scope, o.Scope, StringComparison.OrdinalIgnoreCase))))
+            SecureStorage.Default.Remove(SecretKey(gone.Scope));
         foreach (var a in list)
         {
-            if (string.IsNullOrWhiteSpace(a.Token)) SecureStorage.Default.Remove(TokenKey(a.BaseUrl));
-            else await SecureStorage.Default.SetAsync(TokenKey(a.BaseUrl), a.Token.Trim());
+            a.Secret = string.IsNullOrWhiteSpace(a.Secret) ? null : a.Secret.Trim();
+            if (a.Remember && a.Secret is not null) await SecureStorage.Default.SetAsync(SecretKey(a.Scope), a.Secret);
+            else SecureStorage.Default.Remove(SecretKey(a.Scope));
         }
-        Preferences.Set("accounts", JsonSerializer.Serialize(list));
+        Preferences.Set("accounts", JsonSerializer.Serialize(list.Where(a => a.Remember).ToList()));
         _accounts = list;
     }
+
+    /// <summary>The account git uses for a remote: one for that repository (when given), else one for its whole server.</summary>
+    public HostAccount? FindAccount(string server, string? repository = null)
+        => (repository is null ? null : _accounts.FirstOrDefault(a => string.Equals(a.Repository, repository, StringComparison.OrdinalIgnoreCase)))
+           ?? _accounts.FirstOrDefault(a => a.Repository is null && HostAccount.SameHost(a.BaseUrl, server));
+
+    /// <summary>
+    /// Git config that signs git in with the accounts, through http.&lt;url&gt;.extraHeader settings passed in the
+    /// environment, so a secret never appears on a command line and is only sent to its own server or repository.
+    /// </summary>
+    public IReadOnlyList<KeyValuePair<string, string>> GetGitConfig()
+        => GitAuth.ExtraHeaderConfig(_accounts
+            .Where(a => !string.IsNullOrEmpty(a.Secret))
+            .Select(a => new GitCredential(a.Scope, a.Repository is not null, a.GitUserName, a.Secret!)));
 
     // ── Host detection cache ─────────────────────────────────────────────────
 
@@ -173,122 +280,7 @@ public sealed class AppSettings
     /// <summary>Hosts whose kind is known: accounts first (they win), then probe results.</summary>
     public IReadOnlyList<KnownHost> KnownHosts =>
     [
-        .. _accounts.Select(a => new KnownHost(a.Kind, a.BaseUrl)),
+        .. _accounts.Where(a => a.Kind != HostingKind.Unknown).Select(a => new KnownHost(a.Kind, a.BaseUrl)),
         .. DetectedHosts.Where(d => d.Value != HostingKind.Unknown).Select(d => new KnownHost(d.Value, "https://" + d.Key)),
     ];
-
-    // ── Git sign-ins ─────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// A username and password or access token for git over HTTPS, for every repository on <see cref="Server"/>, or
-    /// only for <see cref="Repository"/> (its remote URL) so repositories on one server can use different logins.
-    /// </summary>
-    public sealed record GitLogin(string Server, string UserName, string Secret, string? Repository = null)
-    {
-        /// <summary>The URL this login applies to, and its storage key.</summary>
-        public string Scope => Repository ?? Server;
-
-        public string Display => Repository is null
-            ? $"{new Uri(Server).Host} (all repositories) — {UserName}"
-            : $"{Repository[(Server.Length + 1)..]} on {new Uri(Server).Host} — {UserName}";
-    }
-
-    // Remembered logins (SecureStorage, listed in Preferences) and logins kept only until the app exits; keyed by Scope.
-    readonly Dictionary<string, GitLogin> _savedLogins = new(StringComparer.OrdinalIgnoreCase);
-    readonly Dictionary<string, GitLogin> _sessionLogins = new(StringComparer.OrdinalIgnoreCase);
-
-    static string LoginKey(string scope) => "gitlogin:" + scope;
-
-    public IReadOnlyCollection<GitLogin> SavedGitLogins => _savedLogins.Values;
-
-    async Task LoadGitLoginsAsync()
-    {
-        List<string> scopes;
-        try { scopes = JsonSerializer.Deserialize<List<string>>(Preferences.Get("git_login_scopes", "[]")) ?? []; }
-        catch (JsonException) { scopes = []; }
-        foreach (var scope in scopes)
-        {
-            try
-            {
-                if (await SecureStorage.Default.GetAsync(LoginKey(scope)) is { } json &&
-                    JsonSerializer.Deserialize<GitLogin>(json) is { } login)
-                    _savedLogins[scope] = login;
-            }
-            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[AppSettings] git login read failed: {ex.Message}"); }
-        }
-    }
-
-    /// <summary>Uses a login for git; with <paramref name="remember"/>, also after restarts.</summary>
-    public async Task SetGitLoginAsync(GitLogin login, bool remember)
-    {
-        _sessionLogins.Remove(login.Scope);
-        _savedLogins.Remove(login.Scope);
-        if (remember)
-        {
-            await SecureStorage.Default.SetAsync(LoginKey(login.Scope), JsonSerializer.Serialize(login));
-            _savedLogins[login.Scope] = login;
-        }
-        else
-        {
-            SecureStorage.Default.Remove(LoginKey(login.Scope));
-            _sessionLogins[login.Scope] = login;
-        }
-        SaveLoginScopes();
-    }
-
-    public void ForgetGitLogin(GitLogin login)
-    {
-        _savedLogins.Remove(login.Scope);
-        _sessionLogins.Remove(login.Scope);
-        SecureStorage.Default.Remove(LoginKey(login.Scope));
-        SaveLoginScopes();
-    }
-
-    void SaveLoginScopes() => Preferences.Set("git_login_scopes", JsonSerializer.Serialize(_savedLogins.Keys.ToList()));
-
-    /// <summary>The login git would use for a remote: one for that repository, else one for its whole server.</summary>
-    public GitLogin? FindGitLogin(string server, string repository)
-    {
-        var all = _savedLogins.Values.Concat(_sessionLogins.Values).ToList();
-        return all.FirstOrDefault(l => string.Equals(l.Repository, repository, StringComparison.OrdinalIgnoreCase))
-               ?? all.FirstOrDefault(l => l.Repository is null && string.Equals(l.Server, server, StringComparison.OrdinalIgnoreCase));
-    }
-
-    /// <summary>"https://host[:port]" without user info, the form git logins and extraHeader scopes are keyed by.</summary>
-    static string? ServerOf(string? url)
-        => Uri.TryCreate(url, UriKind.Absolute, out var u) && u.Scheme is "http" or "https"
-            ? (u.IsDefaultPort ? $"{u.Scheme}://{u.Host}" : $"{u.Scheme}://{u.Host}:{u.Port}")
-            : null;
-
-    /// <summary>
-    /// Git config that authenticates HTTPS remotes with an Authorization header scoped by http.&lt;url&gt;.extraHeader,
-    /// so a secret is only ever sent to its own server (or repository). Per server, a login from the sign-in dialog
-    /// wins over an account token, since the dialog is how a failing token gets replaced.
-    /// </summary>
-    public IReadOnlyList<KeyValuePair<string, string>> GetGitConfig()
-    {
-        static string Header(string user, string secret)
-            => "Authorization: Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes($"{user}:{secret}"));
-
-        var servers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var a in _accounts)
-        {
-            if (a.UseTokenForGit && !string.IsNullOrEmpty(a.Token) && ServerOf(a.BaseUrl) is { } server)
-                // Both hosts accept any username with a token as the password; these are the conventional ones.
-                servers[server] = Header(a.Kind == HostingKind.GitHub ? "x-access-token" : "oauth2", a.Token);
-        }
-        var logins = _savedLogins.Values.Concat(_sessionLogins.Values).ToList();
-        foreach (var l in logins.Where(l => l.Repository is null))
-            servers[l.Server] = Header(l.UserName, l.Secret);
-
-        // Repository logins first. For each URL git keeps the most specific match seen so far and skips later, less
-        // specific ones, so a repository's header shuts out its server's header instead of both being sent. (Resetting
-        // with an empty value isn't an option: Windows drops environment variables with empty values.)
-        var config = logins
-            .Where(l => l.Repository is not null)
-            .Select(l => new KeyValuePair<string, string>($"http.{l.Repository}.extraHeader", Header(l.UserName, l.Secret)))
-            .ToList();
-        config.AddRange(servers.Select(s => new KeyValuePair<string, string>($"http.{s.Key}/.extraHeader", s.Value)));
-        return config;
-    }
 }

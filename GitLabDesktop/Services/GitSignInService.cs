@@ -31,17 +31,20 @@ public sealed class GitSignInService(AppSettings settings, HostingRegistry hosti
         // The repository URL git requests use, without user info, as the scope of a repository-only account.
         var uri = new Uri(remoteUrl!);
         var repositoryUrl = server + uri.AbsolutePath.TrimEnd('/');
-        var remote = HostedRemote.Parse(remoteUrl, settings.KnownHosts);
+        // Asks the server what it runs if nothing says yet, so the dialog only asks the user when that fails too.
+        var remote = await hosting.ResolveAsync(remoteUrl);
         var existing = settings.FindAccount(server, repositoryUrl);
         var serverAccount = settings.FindAccount(server);
 
         var vm = new GitSignInViewModel(server, remote, remote?.ProjectPath,
             existing?.UserName ?? GitAuth.UserName(remoteUrl),
             rejected: existing is { Secret.Length: > 0 } ? existing.Title : null,
-            serverUsesApi: serverAccount?.UsesApi ?? IsApiServer(remote),
+            // An "other git server" account doesn't settle it: the type chosen in the dialog does.
+            serverAccountUsesApi: serverAccount is { Kind: not HostingKind.Unknown } ? serverAccount.UsesApi : null,
             gitError);
         await dialogs.PushModalAsync(new GitSignInPage(vm));
         if (await vm.Result is not { } input) return SignInOutcome.Cancelled;
+        if (remote is not null) remote = remote with { Kind = input.Kind };
 
         var accounts = settings.Accounts.Select(a => a.Clone()).ToList();
         var account = input.ThisRepositoryOnly
@@ -57,6 +60,12 @@ public sealed class GitSignInService(AppSettings settings, HostingRegistry hosti
             };
             accounts.Add(account);
         }
+        else if (account.Kind == HostingKind.Unknown && input.Kind != HostingKind.Unknown)
+        {
+            // A server saved as "other" that the user has now said is GitLab or GitHub Enterprise
+            account.Kind = input.Kind;
+            account.BaseUrl = ServerBaseUrl(server, remote);
+        }
         account.UserName = input.UserName;
         account.Secret = input.Secret;
         account.Remember = input.Remember;
@@ -64,9 +73,6 @@ public sealed class GitSignInService(AppSettings settings, HostingRegistry hosti
         hosting.Rebuild();
         return SignInOutcome.Retry;
     }
-
-    static bool IsApiServer(HostedRemote? remote)
-        => remote?.Kind == HostingKind.GitLab || (remote?.Kind == HostingKind.GitHub && remote.IsOn(AppSettings.GitHubUrl));
 
     /// <summary>The account URL for a server: github.com, a GitLab server's web root (which may have a path), or the server.</summary>
     static string ServerBaseUrl(string server, HostedRemote? remote) => remote?.Kind switch

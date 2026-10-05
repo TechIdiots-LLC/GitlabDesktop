@@ -7,10 +7,13 @@
 - The repository and branch lists drop down under their toolbar buttons, like GitHub Desktop, instead of filling the window. Add/Clone and New branch are buttons beside the filter, branches are grouped into the default branch, other branches and remote branches, and Enter picks the first match while Esc or a click outside closes the list.
 - **Git server accounts**: Options › Accounts › + Add Git server account signs git in to any other server over HTTPS (Gitea, Bitbucket Server, a plain git host and so on) with a username and password or token. These accounts are used for git only; merge/pull requests and CI need a GitLab or GitHub account.
 - Help › Documentation (F1) opens the user guide.
+- **Server type**: when the app can't tell whether a server runs GitLab or GitHub Enterprise, the sign-in prompt asks. A GitLab server behind a proxy can then still get merge requests, pipelines and **Create token…**, and GitHub Enterprise gets GitHub's wording and links. Every account in Options except github.com can have its type changed, and GitHub Enterprise accounts now have an editable server URL.
 - New GitLab Desktop logo: the app, installer, taskbar and Start menu icons (sharp from 16 to 256 px on Windows), the macOS icon, the Android/iOS launcher icon and splash screen, and the welcome screen.
 
 ### 🐞 Bug fixes
 - _...Add new stuff here..._
+- The "Use this sign-in for" choices in the sign-in prompt showed no text on Windows.
+- The sign-in prompt now checks what the server runs before asking, instead of treating a server the app hadn't checked yet as a plain git server. A server that gives no answer isn't asked again for 10 minutes.
 - Installing an update no longer fails with "The downloaded installer isn't validly signed" when releases are signed with a self-signed certificate. The installer must still be untampered and signed with exactly the certificate the running app is signed with.
 
 ## 0.2.0

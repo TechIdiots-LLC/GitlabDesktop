@@ -13,6 +13,14 @@
             <Label Text="{Binding GitError}" Style="{StaticResource SecondaryText}" FontFamily="{StaticResource MonoFont}"
                    MaxLines="4" LineBreakMode="TailTruncation" />
 
+            <!-- Asked only when the app couldn't recognise the server; otherwise just stated. -->
+            <VerticalStackLayout Spacing="4" Margin="0,8,0,0" IsVisible="{Binding CanChooseServerType}">
+                <Label Text="Server type" Style="{StaticResource SecondaryText}" />
+                <Picker ItemsSource="{Binding ServerTypeNames}" SelectedIndex="{Binding ServerTypeIndex}" />
+                <Label Text="{Binding ServerTypeHelp}" Style="{StaticResource SecondaryText}" />
+            </VerticalStackLayout>
+            <Label Text="{Binding ServerTypeText}" IsVisible="{Binding ShowsServerType}" Style="{StaticResource SecondaryText}" />
+
             <Label Text="Username" Style="{StaticResource SecondaryText}" Margin="0,8,0,0" />
             <Entry Text="{Binding UserName}" Placeholder="Username" />
 
@@ -27,8 +35,20 @@
 
             <VerticalStackLayout Spacing="0" Margin="0,6,0,0" IsVisible="{Binding HasRepositoryName}">
                 <Label Text="Use this sign-in for" Style="{StaticResource SecondaryText}" />
-                <RadioButton Content="{Binding AllRepositoriesText}" IsChecked="{Binding ForAllRepositories}" GroupName="scope" />
-                <RadioButton Content="{Binding ThisRepositoryText}" IsChecked="{Binding ForThisRepository}" GroupName="scope" />
+                <!-- Formatted from Host and RepositoryName here: bound to computed text properties (and as RadioButton
+                     Content), these came up empty on Windows. -->
+                <Grid ColumnDefinitions="Auto,*">
+                    <RadioButton IsChecked="{Binding ForAllRepositories}" GroupName="scope" />
+                    <Label Grid.Column="1" Text="{Binding Host, StringFormat='All repositories on {0}'}" VerticalOptions="Center">
+                        <Label.GestureRecognizers><TapGestureRecognizer Command="{Binding ChooseAllRepositoriesCommand}" /></Label.GestureRecognizers>
+                    </Label>
+                </Grid>
+                <Grid ColumnDefinitions="Auto,*">
+                    <RadioButton IsChecked="{Binding ForThisRepository}" GroupName="scope" />
+                    <Label Grid.Column="1" Text="{Binding RepositoryName, StringFormat='Only this repository ({0})'}" VerticalOptions="Center">
+                        <Label.GestureRecognizers><TapGestureRecognizer Command="{Binding ChooseThisRepositoryCommand}" /></Label.GestureRecognizers>
+                    </Label>
+                </Grid>
             </VerticalStackLayout>
 
             <Grid ColumnDefinitions="Auto,*">

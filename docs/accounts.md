@@ -53,6 +53,10 @@ app asks for one and then retries:
 
 ![The sign-in prompt](images/sign-in.png)
 
+- **Server type** appears only when the app couldn't tell what the server runs, for example because its API isn't
+  reachable. Choose **GitLab** to get **Create token…**, merge requests and pipelines for that server, or
+  **GitHub Enterprise** for GitHub's wording and links. Choose **Other git server** for git only. When the type is
+  known, the prompt just states it.
 - **Username** and **Password or access token**. GitHub needs a token here, not your password. On GitLab, the
   username can be left empty when you use a token.
 - **Create token…** (GitLab and github.com) opens the token page, as in Options.
@@ -67,7 +71,9 @@ app asks for one and then retries:
 If a saved sign-in is rejected, for example because the token expired, the heading reads *Sign-in to … failed*. Enter
 the new details to replace it, or **Cancel** to leave the saved account unchanged.
 
-Sign-ins entered here show in **Options › Accounts**, where you can change or **Remove** them. A sign-in for a
+Sign-ins entered here show in **Options › Accounts**, where you can change or **Remove** them. Each account except
+github.com also has a **Server type**, so a server saved as the wrong type can be corrected there. For a GitLab server
+installed under a path, such as `https://example.com/gitlab`, check that the **Server URL** includes the path. A sign-in for a
 GitLab server or github.com with an access token also enables merge/pull requests and CI for that server.
 
 ## SSH

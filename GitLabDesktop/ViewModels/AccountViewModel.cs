@@ -19,22 +19,35 @@ public sealed partial class AccountViewModel : ObservableObject
         _remove = remove;
         _repository = account.Repository;
         _remember = account.Remember;
-        Kind = account.Kind;
         _baseUrl = account.BaseUrl;
+        _serverTypeIndex = ServerTypes.IndexOf(account.Kind);
         _userName = account.UserName ?? "";
         _secret = account.Secret ?? "";
         Title = account.Title;
+        // github.com is always GitHub; any other server's type can be corrected here.
+        CanChangeKind = !IsGitHubDotCom;
     }
 
-    public HostingKind Kind { get; }
+    public HostingKind Kind => ServerTypes.KindAt(ServerTypeIndex);
     public bool IsGitLab => Kind == HostingKind.GitLab;
     public bool IsHosting => Kind is HostingKind.GitLab or HostingKind.GitHub;
+    bool IsGitHubDotCom => Kind == HostingKind.GitHub && HostAccount.SameHost(BaseUrl, AppSettings.GitHubUrl);
     public string Title { get; }
+
+    public bool CanChangeKind { get; }
+    public IReadOnlyList<string> ServerTypeNames => ServerTypes.Names;
+
+    /// <summary>The server type, as an index into <see cref="ServerTypes.Names"/>.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Kind), nameof(IsGitLab), nameof(IsHosting), nameof(KindName), nameof(CanCreateToken),
+        nameof(IsEditableServer), nameof(HasScopeText), nameof(ServerPlaceholder), nameof(UserNameLabel), nameof(UsesApi),
+        nameof(SecretHelp))]
+    private int _serverTypeIndex;
 
     public string KindName => Kind switch
     {
         HostingKind.GitLab => "GitLab",
-        HostingKind.GitHub => "GitHub",
+        HostingKind.GitHub => IsGitHubDotCom ? "GitHub" : "GitHub Enterprise",
         _ => "Git server",
     };
 
@@ -43,12 +56,17 @@ public sealed partial class AccountViewModel : ObservableObject
     public bool HasScopeText => !IsEditableServer;
 
     /// <summary>GitLab servers and github.com have a token page this app can open with the right scopes.</summary>
-    public bool CanCreateToken => IsGitLab || (Kind == HostingKind.GitHub && HostAccount.SameHost(BaseUrl, AppSettings.GitHubUrl));
+    public bool CanCreateToken => IsGitLab || IsGitHubDotCom;
 
-    /// <summary>A whole-server GitLab or other git server account, whose URL is typed in (github.com's is fixed; per-repository ones come from git).</summary>
-    public bool IsEditableServer => (IsGitLab || Kind == HostingKind.Unknown) && _repository is null;
+    /// <summary>A whole-server account whose URL is typed in (github.com's is fixed; per-repository ones come from git).</summary>
+    public bool IsEditableServer => !IsGitHubDotCom && _repository is null;
 
-    public string ServerPlaceholder => IsGitLab ? "https://gitlab.example.com" : "https://git.example.com";
+    public string ServerPlaceholder => Kind switch
+    {
+        HostingKind.GitLab => "https://gitlab.example.com",
+        HostingKind.GitHub => "https://github.example.com",
+        _ => "https://git.example.com",
+    };
 
     // Other servers usually want a real username with a token; GitLab and GitHub accept any.
     public string UserNameLabel => IsHosting ? "Username (optional with an access token)" : "Username";

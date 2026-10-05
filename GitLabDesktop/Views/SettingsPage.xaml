@@ -28,6 +28,10 @@
                                     </Grid>
                                     <Label Text="{Binding ScopeText}" IsVisible="{Binding HasScopeText}" LineBreakMode="MiddleTruncation" />
 
+                                    <Label Text="Server type" Style="{StaticResource SecondaryText}" IsVisible="{Binding CanChangeKind}" />
+                                    <Picker ItemsSource="{Binding ServerTypeNames}" SelectedIndex="{Binding ServerTypeIndex}"
+                                            IsVisible="{Binding CanChangeKind}" HorizontalOptions="Start" MinimumWidthRequest="220" />
+
                                     <Label Text="Server URL" Style="{StaticResource SecondaryText}" IsVisible="{Binding IsEditableServer}" />
                                     <Entry Text="{Binding BaseUrl}" Placeholder="{Binding ServerPlaceholder}" Keyboard="Url" IsVisible="{Binding IsEditableServer}" />
 

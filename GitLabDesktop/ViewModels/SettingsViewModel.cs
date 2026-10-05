@@ -149,12 +149,11 @@ public sealed partial class SettingsViewModel : ModalViewModel<bool>
     async Task Save()
     {
         var accounts = Accounts.Select(a => a.ToAccount()).ToList();
-        var bad = accounts.FirstOrDefault(a => a.Kind != HostingKind.GitHub && a.Repository is null && !Uri.TryCreate(a.BaseUrl, UriKind.Absolute, out _));
+        // github.com accounts always have their URL; every other whole-server account needs one typed in.
+        var bad = Accounts.FirstOrDefault(a => a.IsEditableServer && !Uri.TryCreate(a.NormalizedUrl, UriKind.Absolute, out _));
         if (bad is not null)
         {
-            Error = bad.Kind == HostingKind.GitLab
-                ? "Each GitLab account needs a server URL, e.g. https://gitlab.example.com."
-                : "Each Git server account needs a server URL, e.g. https://git.example.com.";
+            Error = $"Each {bad.KindName} account needs a server URL, e.g. {bad.ServerPlaceholder}.";
             return;
         }
         var duplicate = accounts.GroupBy(a => a.Repository ?? a.Host, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1);

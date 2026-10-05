@@ -12,6 +12,11 @@ public sealed class HostingRegistry(AppSettings settings, IHttpClientFactory htt
 {
     List<(HostAccount Account, IHostingService Service)> _services = [];
 
+    // Hosts that recently gave no answer (offline, or not GitLab/GitHub), so each sign-in or refresh doesn't wait on
+    // another probe. Unlike definite answers these aren't saved: the server is asked again after a while.
+    readonly Dictionary<string, DateTime> _unanswered = new(StringComparer.OrdinalIgnoreCase);
+    static readonly TimeSpan RetryUnansweredAfter = TimeSpan.FromMinutes(10);
+
     public IReadOnlyList<(HostAccount Account, IHostingService Service)> Services => _services;
 
     /// <summary>Recreates the clients from the accounts that use the API (GitLab servers and github.com).</summary>
@@ -47,15 +52,21 @@ public sealed class HostingRegistry(AppSettings settings, IHttpClientFactory htt
         var detected = settings.DetectedHosts;
         bool known = settings.KnownHosts.Any(k => remote.IsOn(k.BaseUrl)) || detected.ContainsKey(remote.Host);
         if (known) return remote;
+        lock (_unanswered)
+            if (_unanswered.TryGetValue(remote.Host, out var asked) && DateTime.UtcNow - asked < RetryUnansweredAfter) return remote;
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
         var kind = await HostProbe.DetectAsync(httpFactory.CreateClient("hosting"), $"https://{remote.Host}", cts.Token);
-        // Remember only definite answers, so an offline host is probed again next time.
+        // Save only definite answers, so an offline host is probed again later.
         if (kind != HostingKind.Unknown)
         {
             detected[remote.Host] = kind;
             settings.DetectedHosts = detected;
             remote = HostedRemote.Parse(remoteUrl, settings.KnownHosts);
+        }
+        else
+        {
+            lock (_unanswered) _unanswered[remote.Host] = DateTime.UtcNow;
         }
         return remote;
     }

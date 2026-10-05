@@ -3,6 +3,12 @@
 ## master
 ### ✨ Features and improvements
 - _...Add new stuff here..._
+
+### 🐞 Bug fixes
+- _...Add new stuff here..._
+
+## 0.3.0
+### ✨ Features and improvements
 - **Image previews**: changed images (PNG, JPEG, GIF, BMP, ICO, WebP, TIFF) are shown as pictures instead of "Binary file changed", in Changes and History: the old one framed in red and the new one in green side by side, or a single "Added"/"Deleted" image, on a checkerboard so transparency shows, with format, pixel size and file size. Icons show their largest image.
 - The repository and branch lists drop down under their toolbar buttons, like GitHub Desktop, instead of filling the window. Add/Clone and New branch are buttons beside the filter, branches are grouped into the default branch, other branches and remote branches, and Enter picks the first match while Esc or a click outside closes the list.
 - **Git server accounts**: Options › Accounts › + Add Git server account signs git in to any other server over HTTPS (Gitea, Bitbucket Server, a plain git host and so on) with a username and password or token. These accounts are used for git only; merge/pull requests and CI need a GitLab or GitHub account.
@@ -11,7 +17,6 @@
 - New GitLab Desktop logo: the app, installer, taskbar and Start menu icons (sharp from 16 to 256 px on Windows), the macOS icon, the Android/iOS launcher icon and splash screen, and the welcome screen.
 
 ### 🐞 Bug fixes
-- _...Add new stuff here..._
 - The "Use this sign-in for" choices in the sign-in prompt showed no text on Windows.
 - The sign-in prompt now checks what the server runs before asking, instead of treating a server the app hadn't checked yet as a plain git server. A server that gives no answer isn't asked again for 10 minutes.
 - Installing an update no longer fails with "The downloaded installer isn't validly signed" when releases are signed with a self-signed certificate. The installer must still be untampered and signed with exactly the certificate the running app is signed with.

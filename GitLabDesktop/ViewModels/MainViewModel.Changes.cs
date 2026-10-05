@@ -24,8 +24,43 @@ public sealed partial class MainViewModel
     [NotifyPropertyChangedFor(nameof(IsChangeImage), nameof(IsChangeText))]
     private ImageDiff? _changeImageDiff;
 
+    /// <summary>Set instead of a diff when the selected file has merge conflicts.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsChangeConflict), nameof(IsChangeText), nameof(ConflictStatusText),
+        nameof(UseOursText), nameof(UseTheirsText))]
+    private ConflictInfo? _changeConflict;
+
+    ConflictSides _conflictSides = new("your branch", "the other branch");
+
     public bool IsChangeImage => ChangeImageDiff is not null;
-    public bool IsChangeText => ChangeImageDiff is null;
+    public bool IsChangeConflict => ChangeConflict is not null;
+    public bool IsChangeText => ChangeImageDiff is null && ChangeConflict is null;
+
+    public string ConflictStatusText => ChangeConflict switch
+    {
+        null => "",
+        { HasOurs: false } => $"{_conflictSides.Ours} deleted this file, and {_conflictSides.Theirs} changed it.",
+        { HasTheirs: false } => $"{_conflictSides.Theirs} deleted this file, and {_conflictSides.Ours} changed it.",
+        { Markers: > 0 } c => $"{c.Markers} conflict{(c.Markers == 1 ? "" : "s")} left between {_conflictSides.Ours} and " +
+                              $"{_conflictSides.Theirs}. Open the file in your editor and keep what you want between each " +
+                              "<<<<<<< and >>>>>>> marker, removing the markers.",
+        _ => HasOperation
+            ? "No conflicts remaining. The file is included when you continue."
+            : "No conflicts remaining. The file is included when you commit.",
+    };
+
+    public string UseOursText => ChangeConflict is { HasOurs: false } ? $"Delete it, as in {_conflictSides.Ours}" : $"Use {_conflictSides.Ours}'s version";
+    public string UseTheirsText => ChangeConflict is { HasTheirs: false } ? $"Delete it, as in {_conflictSides.Theirs}" : $"Use {_conflictSides.Theirs}'s version";
+
+    [RelayCommand]
+    async Task ResolveConflict(ConflictChoice choice)
+    {
+        if (Repo is null || SelectedChange is not { } file || ChangeConflict is null) return;
+        await RunAsync("Resolving…", () => Repo.ResolveConflictAsync(file.Change.Path, choice));
+    }
+
+    [RelayCommand]
+    Task OpenConflictInEditor() => SelectedChange is { } file ? OpenFileInEditorAsync(file) : Task.CompletedTask;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanCommit))]
@@ -74,6 +109,9 @@ public sealed partial class MainViewModel
         OnPropertyChanged(nameof(ChangedFilesHeader));
         OnPropertyChanged(nameof(HasChanges));
         OnPropertyChanged(nameof(ChangedFilesCount));
+        OnPropertyChanged(nameof(HasConflicts));
+        OnPropertyChanged(nameof(ShowOperationBanner));
+        OnPropertyChanged(nameof(OperationBanner));
         UpdateIncludedState();
 
         var reselect = ChangedFiles.FirstOrDefault(f => f.Change.Path + "|" + f.Change.Kind == selectedKey)
@@ -112,10 +150,25 @@ public sealed partial class MainViewModel
             ChangeDiffLines = null;
             ChangeDiffMessage = null;
             ChangeImageDiff = null;
+            ChangeConflict = null;
             return;
         }
         try
         {
+            if (file.Change.Kind == FileChangeKind.Conflicted)
+            {
+                var sides = await Repo.GetConflictSidesAsync(Operation);
+                var conflict = await Repo.GetConflictAsync(file.Change.Path);
+                if (SelectedChange != file) return;
+                _conflictSides = sides;
+                ChangeDiffLines = null;
+                ChangeDiffMessage = null;
+                ChangeImageDiff = null;
+                ChangeConflict = null;   // re-raise the texts even when the info is unchanged
+                ChangeConflict = conflict;
+                return;
+            }
+            ChangeConflict = null;
             if (ImageDiff.IsImage(file.Change.Path))
             {
                 // Shown as pictures (old and new), like GitHub Desktop; images are committed whole.
@@ -136,6 +189,7 @@ public sealed partial class MainViewModel
         {
             ChangeDiffLines = null;
             ChangeImageDiff = null;
+            ChangeConflict = null;
             ChangeDiffMessage = ex.Message;
         }
     }
@@ -210,8 +264,13 @@ public sealed partial class MainViewModel
             }
         }
 
-        if (selections.Any(s => s.Change.Kind == FileChangeKind.Conflicted) &&
-            !await _dialogs.ConfirmAsync("Conflicted files", "Some included files still have merge conflicts. Commit them anyway?", "Commit"))
+        // Conflicted files whose markers are all gone are simply resolved; warn only about ones that still have markers.
+        var withMarkers = new List<string>();
+        foreach (var s in selections.Where(s => s.Change.Kind == FileChangeKind.Conflicted))
+            if ((await Repo.GetConflictAsync(s.Change.Path)).Markers > 0) withMarkers.Add(s.Change.Path);
+        if (withMarkers.Count > 0 &&
+            !await _dialogs.ConfirmAsync("Conflicts remain",
+                $"{string.Join(", ", withMarkers)} still {(withMarkers.Count == 1 ? "has" : "have")} conflict markers. Commit anyway?", "Commit"))
             return;
 
         var message = CommitSummary.Trim();

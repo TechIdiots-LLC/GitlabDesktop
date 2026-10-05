@@ -145,3 +145,20 @@ public sealed class PipelineStatusGlyphConverter : IValueConverter
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => throw new NotSupportedException();
 }
+
+/// <summary>✓ for a resolved conflicted file, ! for one that still has conflicts.</summary>
+public sealed class ConflictGlyphConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => value is true ? "✓" : "!";
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => throw new NotSupportedException();
+}
+
+/// <summary>Green for a resolved conflicted file, the conflict colour otherwise.</summary>
+public sealed class ConflictColorConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => Color.FromArgb(value is true ? "#2DA44E" : "#BF3989");
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => throw new NotSupportedException();
+}

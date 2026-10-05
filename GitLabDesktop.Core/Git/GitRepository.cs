@@ -6,7 +6,7 @@ namespace GitLabDesktop.Core.Git;
 public sealed record CommitFileSelection(FileChange Change, FileDiff? PartialDiff);
 
 /// <summary>Local repository operations, implemented on top of the git CLI.</summary>
-public sealed class GitRepository(GitRunner git, string path)
+public sealed partial class GitRepository(GitRunner git, string path)
 {
     const string RecordSep = "\x1e";
     const string FieldSep = "\x1f";
@@ -432,6 +432,20 @@ public sealed class GitRepository(GitRunner git, string path)
         var args = new List<string> { "pull" };
         if (!cfg.Success) args.Add("--no-rebase");
         await Run(args, ct: ct);
+    }
+
+    /// <summary>
+    /// Pulls with uncommitted changes in the way: stashes them (untracked files too), pulls, and puts them back.
+    /// Returns false when they came back with conflicts; the stash is then kept, as git does, so nothing is lost.
+    /// If the pull itself fails, the changes stay in the stash named <paramref name="stashMessage"/> and the error is
+    /// thrown.
+    /// </summary>
+    public async Task<bool> PullAroundLocalChangesAsync(string stashMessage, CancellationToken ct = default)
+    {
+        await StashAsync(stashMessage);
+        await PullAsync(ct);
+        var pop = await Run(["stash", "pop"], throwOnError: false);
+        return pop.Success;
     }
 
     public Task PushAsync(string remote, string branch, bool setUpstream, bool force = false, CancellationToken ct = default)

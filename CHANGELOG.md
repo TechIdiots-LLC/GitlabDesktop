@@ -3,6 +3,9 @@
 ## master
 ### ✨ Features and improvements
 - _...Add new stuff here..._
+- **Resolve conflicts in the app**, like GitHub Desktop: when a merge, rebase, pull, cherry-pick or revert stops on conflicts, a dialog lists every conflicted file with how many conflicts are left, with **Open in editor** and **Use a version** (either branch's file, or keeping a deletion). It watches the files, so a file saved without conflict markers shows as resolved straight away, with nothing to mark; **Continue** is enabled once all are. A banner and the Changes tab offer the same choices afterwards.
+- A push refused because the server has newer commits now explains that and offers **Fetch**, after which the toolbar offers Pull with both counts, like GitHub Desktop.
+- A pull blocked by uncommitted changes offers **Stash and pull**: the changes are set aside, the pull runs, and they are put back on top (any that clash are marked as conflicted, and a copy stays in the stash).
 
 ### 🐞 Bug fixes
 - _...Add new stuff here..._

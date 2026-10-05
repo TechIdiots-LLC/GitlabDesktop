@@ -215,11 +215,14 @@
         </Grid>
 
         <!-- ── Merge / rebase banner ───────────────────────────────────────── -->
-        <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Padding="12,6" IsVisible="{Binding HasOperation}"
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8" Padding="12,6" IsVisible="{Binding ShowOperationBanner}"
               BackgroundColor="{AppThemeBinding Light={StaticResource BannerLight}, Dark={StaticResource BannerDark}}">
             <Label Text="{Binding OperationBanner}" VerticalOptions="Center" />
-            <Button Grid.Column="1" Text="Continue" Command="{Binding ContinueOperationCommand}" />
-            <Button Grid.Column="2" Text="Abort" Command="{Binding AbortOperationCommand}" Style="{StaticResource SecondaryButton}" />
+            <Button Grid.Column="1" Text="Resolve conflicts…" Command="{Binding ResolveConflictsCommand}"
+                    IsVisible="{Binding HasConflicts}" Style="{StaticResource SecondaryButton}" />
+            <Button Grid.Column="2" Text="Continue" Command="{Binding ContinueOperationCommand}" IsVisible="{Binding HasOperation}" />
+            <Button Grid.Column="3" Text="Abort" Command="{Binding AbortOperationCommand}" Style="{StaticResource SecondaryButton}"
+                    IsVisible="{Binding HasOperation}" />
         </Grid>
 
         <!-- ── Welcome (no repository) ─────────────────────────────────────── -->
@@ -406,6 +409,27 @@
                     <controls:DiffView Grid.Row="2" Lines="{Binding ChangeDiffLines}" Message="{Binding ChangeDiffMessage}"
                                        ToggleCommand="{Binding ToggleLineCommand}" IsVisible="{Binding IsChangeText}" />
                     <controls:ImageDiffView Grid.Row="2" Diff="{Binding ChangeImageDiff}" IsVisible="{Binding IsChangeImage}" />
+
+                    <!-- Conflicted file: resolve it with one side's version, or by editing, like GitHub Desktop -->
+                    <ScrollView Grid.Row="2" IsVisible="{Binding IsChangeConflict}">
+                        <VerticalStackLayout Padding="24" Spacing="12" MaximumWidthRequest="640" HorizontalOptions="Start">
+                            <Label Text="This file has conflicts" FontSize="20" FontAttributes="Bold" />
+                            <Label Text="{Binding ConflictStatusText}" />
+                            <Button Text="Open in editor" Command="{Binding OpenConflictInEditorCommand}" HorizontalOptions="Start"
+                                    IsVisible="{Binding ChangeConflict.ExistsOnDisk}" />
+                            <Label Text="Or keep one side's version, dropping the other side's changes to this file:"
+                                   Style="{StaticResource SecondaryText}" Margin="0,8,0,0" />
+                            <HorizontalStackLayout Spacing="8">
+                                <Button Text="{Binding UseOursText}" Command="{Binding ResolveConflictCommand}"
+                                        CommandParameter="{x:Static git:ConflictChoice.Ours}" Style="{StaticResource SecondaryButton}" />
+                                <Button Text="{Binding UseTheirsText}" Command="{Binding ResolveConflictCommand}"
+                                        CommandParameter="{x:Static git:ConflictChoice.Theirs}" Style="{StaticResource SecondaryButton}" />
+                            </HorizontalStackLayout>
+                            <Button Text="Resolve conflicts…" Command="{Binding ResolveConflictsCommand}" HorizontalOptions="Start"
+                                    Style="{StaticResource SecondaryButton}" Margin="0,8,0,0"
+                                    ToolTipProperties.Text="All conflicted files in one list, updated as you save them" />
+                        </VerticalStackLayout>
+                    </ScrollView>
                 </Grid>
 
                 <VerticalStackLayout IsVisible="{Binding HasChanges, Converter={StaticResource InvertBool}}" Spacing="10"

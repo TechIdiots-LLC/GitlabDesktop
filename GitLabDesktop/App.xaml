@@ -18,6 +18,8 @@
             <conv:FileChangeKindColorConverter x:Key="FileChangeKindColor" />
             <conv:RelativeTimeConverter x:Key="RelativeTime" />
             <conv:PipelineStatusColorConverter x:Key="PipelineStatusColor" />
+            <conv:ConflictGlyphConverter x:Key="ConflictGlyph" />
+            <conv:ConflictColorConverter x:Key="ConflictColor" />
             <conv:PipelineStatusGlyphConverter x:Key="PipelineStatusGlyph" />
         </ResourceDictionary>
     </Application.Resources>

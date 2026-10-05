@@ -235,19 +235,60 @@ public sealed partial class MainViewModel
         CommitDescription = "";
     }
 
+    public bool HasConflicts => ChangedFiles.Any(f => f.Change.Kind == FileChangeKind.Conflicted);
+
+    bool _showingConflicts;
+
+    /// <summary>The Resolve conflicts dialog, like GitHub Desktop's: every conflicted file, rechecked as it's saved.</summary>
     [RelayCommand]
-    Task ContinueOperation()
+    async Task ResolveConflicts()
     {
-        if (Repo is null || Operation == RepositoryOperation.None) return Task.CompletedTask;
-        if (ChangedFiles.Any(f => f.Change.Kind == FileChangeKind.Conflicted))
-            return _dialogs.AlertAsync("Conflicts remain", "Resolve the conflicted files first.");
-        return RunAsync("Continuing…", async () =>
+        if (Repo is not { } repo || _showingConflicts) return;
+        var paths = ChangedFiles.Where(f => f.Change.Kind == FileChangeKind.Conflicted).Select(f => f.Change.Path).ToList();
+        if (paths.Count == 0) return;
+
+        _showingConflicts = true;
+        ConflictsOutcome outcome;
+        try
         {
-            await Repo.ContinueAsync(Operation);
-            CommitSummary = "";
-            CommitDescription = "";
-        });
+            var vm = new ConflictsViewModel(repo, Operation, paths, _dialogs,
+                path => TryPlatform(() => _platform.OpenInEditor(System.IO.Path.Combine(repo.Path, path))));
+            await _dialogs.PushModalAsync(new ConflictsPage(vm));
+            outcome = await vm.Result;
+        }
+        finally
+        {
+            _showingConflicts = false;
+        }
+
+        if (outcome == ConflictsOutcome.Continue) await ContinueResolvedAsync();
+        else if (outcome == ConflictsOutcome.Abort) await AbortOperation();
+        else await RefreshAsync();
     }
+
+    [RelayCommand]
+    async Task ContinueOperation()
+    {
+        if (Repo is null || Operation == RepositoryOperation.None) return;
+        // Conflicted files with no markers left count as resolved (Continue stages them); anything else needs the dialog.
+        foreach (var f in ChangedFiles.Where(f => f.Change.Kind == FileChangeKind.Conflicted).ToList())
+        {
+            var c = await Repo.GetConflictAsync(f.Change.Path);
+            if (c.Markers > 0 || !c.HasOurs || !c.HasTheirs || !c.ExistsOnDisk)
+            {
+                await ResolveConflicts();
+                return;
+            }
+        }
+        await ContinueResolvedAsync();
+    }
+
+    Task ContinueResolvedAsync() => Repo is null ? Task.CompletedTask : RunAsync("Continuing…", async () =>
+    {
+        await Repo.ContinueAsync(Operation);
+        CommitSummary = "";
+        CommitDescription = "";
+    });
 
     // ── GitLab / GitHub ──────────────────────────────────────────────────────
 

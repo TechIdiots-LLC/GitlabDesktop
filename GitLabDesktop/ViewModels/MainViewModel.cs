@@ -67,7 +67,7 @@ public sealed partial class MainViewModel : ObservableObject
     private RepositoryStatus? _status;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasOperation), nameof(OperationBanner))]
+    [NotifyPropertyChangedFor(nameof(HasOperation), nameof(OperationBanner), nameof(ShowOperationBanner))]
     private RepositoryOperation _operation;
 
     [ObservableProperty]
@@ -116,13 +116,17 @@ public sealed partial class MainViewModel : ObservableObject
     };
 
     public bool HasOperation => Operation != RepositoryOperation.None;
+
+    /// <summary>Also for conflicts with nothing in progress, e.g. from a squash merge or restoring a stash.</summary>
+    public bool ShowOperationBanner => HasOperation || HasConflicts;
+
     public string OperationBanner => Operation switch
     {
-        RepositoryOperation.Merge => "A merge is in progress. Resolve any conflicts, then commit, or abort the merge.",
+        RepositoryOperation.Merge => "A merge is in progress. Resolve any conflicts, then continue, or abort the merge.",
         RepositoryOperation.Rebase => "A rebase is in progress. Resolve any conflicts, then continue, or abort the rebase.",
         RepositoryOperation.CherryPick => "A cherry-pick is in progress. Resolve any conflicts, then continue, or abort.",
         RepositoryOperation.Revert => "A revert is in progress. Resolve any conflicts, then continue, or abort.",
-        _ => "",
+        _ => HasConflicts ? "Some files have conflicts. Resolve them, then commit." : "",
     };
 
     public bool HasChangeRequest => ChangeRequest is not null;
@@ -388,7 +392,7 @@ public sealed partial class MainViewModel : ObservableObject
         if (IsBusy) return;
         IsBusy = true;
         BusyText = busyText;
-        bool signedIn = false;
+        bool signedIn = false, conflicted = false;
         try
         {
             // A login git doesn't have (or that was rejected) prompts for one and retries, until it works or is cancelled.
@@ -409,6 +413,12 @@ public sealed partial class MainViewModel : ObservableObject
                     BusyText = busyText;
                 }
             }
+        }
+        catch (GitException ex) when (GitErrors.StoppedOnConflicts(ex.Message))
+        {
+            // A merge, rebase, pull, cherry-pick or revert that stopped on conflicts: the Resolve conflicts dialog
+            // (after the refresh below) says more than git's text.
+            conflicted = true;
         }
         catch (GitException ex)
         {
@@ -431,9 +441,10 @@ public sealed partial class MainViewModel : ObservableObject
             IsBusy = false;
             BusyText = null;
         }
-        if (refresh) await RefreshAsync();
+        if (refresh || conflicted) await RefreshAsync();
         // A token entered at sign-in may also have set up the API account (merge requests, CI status).
         if (signedIn) await LoadRemoteAsync();
+        if (conflicted) await ResolveConflicts();
     }
 
     async Task<bool> RequireRemoteAsync()

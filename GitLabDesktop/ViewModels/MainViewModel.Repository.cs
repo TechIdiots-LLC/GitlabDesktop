@@ -150,20 +150,80 @@ public sealed partial class MainViewModel
             if (choice.StartsWith("Pull")) { await Pull(); return; }
             force = true;
         }
+        var rejected = false;
         await RunAsync(status.Upstream is null ? "Publishing branch…" : "Pushing…", async () =>
         {
-            await Repo.PushAsync(RemoteName, status.Branch!, setUpstream: status.Upstream is null, force);
-            _lastFetched = DateTimeOffset.Now;
+            try
+            {
+                await Repo.PushAsync(RemoteName, status.Branch!, setUpstream: status.Upstream is null, force);
+                _lastFetched = DateTimeOffset.Now;
+            }
+            catch (GitException ex) when (GitErrors.IsPushRejectedAsBehind(ex.Message))
+            {
+                rejected = true;
+            }
         });
+        if (rejected)
+        {
+            // Like GitHub Desktop: fetch first, then the toolbar offers Pull with both counts (↓ ↑).
+            if (await _dialogs.ConfirmAsync("Newer commits on remote",
+                    $"{status.Branch} can't be pushed because {RemoteName} has commits that aren't on your branch yet. " +
+                    "Fetch them, then pull to combine them with your commits before pushing.", "Fetch"))
+                await Fetch();
+            return;
+        }
         await LoadHostingInfoAsync();
     }
 
     [RelayCommand]
-    Task Pull() => Repo is null ? Task.CompletedTask : RunAsync("Pulling…", async () =>
+    async Task Pull()
     {
-        await Repo.PullAsync();
-        _lastFetched = DateTimeOffset.Now;
-    });
+        if (Repo is null) return;
+        var blocked = false;
+        await RunAsync("Pulling…", async () =>
+        {
+            try
+            {
+                await Repo.PullAsync();
+                _lastFetched = DateTimeOffset.Now;
+            }
+            catch (GitException ex) when (GitErrors.IsBlockedByLocalChanges(ex.Message))
+            {
+                blocked = true;
+            }
+        });
+        if (!blocked) return;
+
+        if (!await _dialogs.ConfirmAsync("Uncommitted changes are in the way",
+                "Pulling would overwrite files you have changed but not committed. The app can stash your changes, pull, " +
+                "and then put them back on top. Or cancel, and commit or discard them first.", "Stash and pull"))
+            return;
+
+        var restored = true;
+        string? failure = null;
+        await RunAsync("Pulling…", async () =>
+        {
+            try
+            {
+                restored = await Repo.PullAroundLocalChangesAsync($"GitLab Desktop: changes before pulling {BranchName}");
+                _lastFetched = DateTimeOffset.Now;
+            }
+            catch (GitException ex) when (!GitSignInService.IsAuthenticationFailure(ex))
+            {
+                failure = ex.Message;
+            }
+        });
+        if (failure is not null)
+            await _dialogs.AlertAsync("Pull failed",
+                $"{failure}\n\nYour uncommitted changes are safe in a stash. Bring them back with Branch › Restore stashed changes.");
+        else if (!restored)
+        {
+            await _dialogs.AlertAsync("Some changes conflict",
+                "The pull worked, but some of your uncommitted changes conflict with the pulled commits. Resolve those " +
+                "files next. A copy of your changes is also kept as a stash, so nothing is lost.");
+            await ResolveConflicts();
+        }
+    }
 
     [RelayCommand]
     async Task Fetch()

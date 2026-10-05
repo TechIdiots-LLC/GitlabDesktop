@@ -61,13 +61,22 @@ the pipeline or checks.
 
 ## Conflicts
 
-If a merge, rebase, cherry-pick or revert stops because of conflicts, a banner appears under the toolbar, and the
-conflicted files are marked in the Changes tab.
+If a merge, rebase, pull, cherry-pick or revert stops because of conflicts, the **Resolve conflicts** dialog opens.
+It lists every conflicted file with its status: how many conflicts are left, *No conflicts remaining*, or that one
+side deleted the file while the other changed it. For each file you can:
 
-1. Open each conflicted file in your editor and resolve the conflict markers (`<<<<<<<`, `=======`, `>>>>>>>`). Save
-   the file.
-2. Back in the app, click **Continue** in the banner (or **Branch › Continue merge / rebase**). Continue adds all your
-   changes and carries on, so make sure everything in the Changes tab belongs in the result. While any file is still
-   marked as conflicted, the app asks you to resolve it first.
+- **Open in editor**: keep what you want between each `<<<<<<<` and `>>>>>>>` marker, delete the markers and save.
+  The dialog watches the file, so as soon as you save it without markers it shows as resolved. There's nothing to mark.
+- **Use a version ▾**: take one branch's whole file and drop the other side's changes to it. If one side deleted the
+  file, you can keep the deletion instead.
 
-**Abort** (or **Branch › Abort merge / rebase…**) puts the branch back the way it was before you started.
+When every file is resolved, click **Continue merge** (or **Continue rebase**, and so on). **Abort** puts the branch
+back the way it was before you started. **Close** leaves the dialog without doing either. A banner under the toolbar
+then keeps **Resolve conflicts…**, **Continue** and **Abort** at hand, and clicking a conflicted file (marked **!**) in
+the Changes tab shows the same choices for that one file.
+
+During a rebase the sides are the other way round from what you might expect: your branch's commits are being replayed
+onto the other branch. The dialog always names which branch is which.
+
+Conflicts can also come from [pulling with uncommitted changes](syncing.md#uncommitted-changes-in-the-way) or a squash
+merge. Then nothing is in progress, so there's no Continue: resolve the files the same way and commit as usual.

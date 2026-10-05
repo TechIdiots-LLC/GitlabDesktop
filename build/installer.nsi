@@ -173,6 +173,10 @@ Section "${APP_NAME} (required)" SecApp
   ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
   IntFmt $0 "0x%08X" $0
   WriteRegDWORD HKLM "${UNINST_KEY}" "EstimatedSize" "$0"
+
+  ; An update replaces the exe in place, and Explorer keeps showing the icon it cached for that path (on the taskbar,
+  ; via the Start menu shortcut) until told that icons changed: SHCNE_ASSOCCHANGED, SHCNF_IDLIST.
+  System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
 SectionEnd
 
 Section /o "Desktop shortcut" SecDesktop
@@ -192,5 +196,6 @@ Section "Uninstall"
     Delete "$SMPROGRAMS\${APP_NAME}.lnk"
     Delete "$DESKTOP\${APP_NAME}.lnk"
     DeleteRegKey HKLM "${UNINST_KEY}"
+    System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
   ${EndIf}
 SectionEnd

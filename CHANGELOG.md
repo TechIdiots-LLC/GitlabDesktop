@@ -6,6 +6,7 @@
 
 ### 🐞 Bug fixes
 - _...Add new stuff here..._
+- After an update, the taskbar and Start menu could keep showing the old icon, because Windows had cached it. The installer now tells Explorer to refresh icons.
 
 ## 0.3.0
 ### ✨ Features and improvements

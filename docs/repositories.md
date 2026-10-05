@@ -56,7 +56,21 @@ in [Options › Repositories](options.md#repositories), where **Use GitHub Deskt
 | **Show in Explorer / Finder** (Ctrl+Shift+F) | The repository folder. |
 | **Open in editor** (Ctrl+Shift+A) | Opens the folder with your editor command (`code` by default; see [Options › Tools](options.md#tools)). |
 | **Create issue** (Ctrl+I), **View issues**, **View merge requests / pull requests**, **View pipelines / Actions** | The project's pages on GitLab or GitHub. |
-| **Repository settings…** | Change the URL of the repository's remote. |
+| **Repository settings…** | The remote's URL, the `.gitignore`, and the name and email for commits. See [Repository settings](#repository-settings). |
 
 The app refreshes a repository whenever its window regains focus, so changes made in your editor or a terminal show
 up when you switch back. **View › Refresh** (F5) refreshes right away.
+
+## Repository settings
+
+**Repository › Repository settings…** has three sections:
+
+![Repository settings](images/repository-settings.png)
+
+- **Remote**: the URL of the `origin` remote, where Push, Pull and Fetch go. Changing it also changes which GitLab or
+  GitHub project the links and merge/pull requests are for.
+- **Ignored files**: edit the repository's `.gitignore`, one pattern per line (for example `bin/` or `*.log`). Files
+  git already tracks aren't affected. To ignore a single changed file, right-click it in the Changes tab instead.
+- **Git config**: the name and email recorded on your commits. **Use my global Git config** uses the ones set for
+  all your repositories. **Use a local Git config** sets them for this repository only, for example a work email on
+  a work project. Switching back to global removes this repository's own name and email.

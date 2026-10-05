@@ -3,6 +3,8 @@
 ## master
 ### ✨ Features and improvements
 - _...Add new stuff here..._
+- **Repository settings** is now a dialog like GitHub Desktop's, with **Remote** (the remote URL), **Ignored files** (edit the `.gitignore`) and **Git config** (use your global name and email, or set ones for this repository only).
+- **Submodules**: the clone dialog has an **Include submodules** checkbox, and **Options › Repositories › Include submodules** sets its default. That option is git's own `submodule.recurse` setting, so switching branches and pulling also update submodules, in the app and on the command line. Clones used to always include submodules; they now follow this setting, which is off unless you've turned it on.
 
 ### 🐞 Bug fixes
 - _...Add new stuff here..._

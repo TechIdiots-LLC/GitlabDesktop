@@ -263,15 +263,12 @@ public sealed partial class MainViewModel
     async Task RepositorySettings()
     {
         if (Repo is null) return;
-        var current = await Repo.GetRemoteUrlAsync(RemoteName);
-        var url = await _dialogs.PromptAsync("Repository settings", $"URL of the '{RemoteName}' remote:", current, "Save",
-            "https://gitlab.example.com/group/project.git");
-        if (string.IsNullOrWhiteSpace(url) || url == current) return;
-        await RunAsync("Saving…", async () =>
-        {
-            await Repo.SetRemoteUrlAsync(RemoteName, url.Trim());
-            await LoadRemoteAsync();
-        });
+        var vm = new RepositorySettingsViewModel(Repo, RemoteName);
+        await _dialogs.PushModalAsync(new RepositorySettingsPage(vm));
+        if (!await vm.Result) return;
+        // A changed .gitignore changes which files are listed; a changed remote may be on another server.
+        await RefreshAsync();
+        if (vm.RemoteChanged) await LoadRemoteAsync();
     }
 
     // ── App ──────────────────────────────────────────────────────────────────

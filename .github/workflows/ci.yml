@@ -166,10 +166,13 @@ jobs:
       - name: Set up .NET 10
         uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '10.0.4xx'
 
       - name: Restore workloads
-        run: dotnet workload restore GitLabDesktop.sln
+        # Pinned workload set: 10.0.401.1 moved the Apple SDKs to 27.0, which require Xcode 27, and GitHub only has
+        # Xcode 27 as a beta (the xcode-27 preview image). 10.0.401 builds with Xcode 26.6. Drop the pin (and the
+        # SDK band above) once macos-26 ships a stable Xcode 27. The version must match the SDK band (10.0.4xx).
+        run: dotnet workload restore GitLabDesktop.sln --version 10.0.401
 
       # Pick the newest stable Xcode rather than pinning one: the .NET Apple SDKs raise their minimum Xcode as they
       # update. Only real app bundles that carry the macOS SDK; the image's X.Y.0 symlinks leave xcodebuild unable to

@@ -36,8 +36,8 @@ public partial class UpdatePage : ContentPage
         if (_asset is not null && OperatingSystem.IsWindows())
         {
             PrimaryButton.Text = "Install and restart";
-            InfoLabel.Text = $"{AppUpdater.ProductName} will close while the update installs, then start again. " +
-                             "Your repositories, accounts and settings are kept.";
+            InfoLabel.Text = $"{AppUpdater.ProductName} will close while the update installs, showing its progress, and then " +
+                             "start again. Your repositories, accounts and settings are kept.";
         }
         else if (_asset is not null && OperatingSystem.IsMacCatalyst())
         {

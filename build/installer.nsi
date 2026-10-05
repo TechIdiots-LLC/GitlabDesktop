@@ -13,8 +13,9 @@
 ; unusual install folder can't take other files with it. Installing over an older version runs the old version's
 ; uninstaller first, so files dropped between versions don't pile up.
 ;
-; In-app updates run this installer as: setup.exe /S /UPDATE /D=<install folder>. With /UPDATE it waits for the app to
-; exit before replacing its files, and starts the app again when the install finishes.
+; In-app updates run this installer as: setup.exe /UPDATE /D=<install folder>. Update mode shows only the progress page
+; ("Updating ..."): it waits there for the app to exit, replaces its files, closes by itself and starts the app again.
+; Versions up to 0.4.0 also pass /S, which runs the same update with no window.
 
 Unicode true
 ManifestDPIAware true
@@ -65,10 +66,17 @@ VIAddVersionKey "LegalCopyright" "${PUBLISHER}"
 !define MUI_FINISHPAGE_RUN_TEXT "Start ${APP_NAME}"
 !define MUI_FINISHPAGE_RUN_FUNCTION LaunchApp
 
+; An in-app update shows only the progress page
+Var IsUpdate
+!define MUI_PAGE_CUSTOMFUNCTION_PRE SkipWhenUpdating
 !insertmacro MUI_PAGE_WELCOME
+!define MUI_PAGE_CUSTOMFUNCTION_PRE SkipWhenUpdating
 !insertmacro MUI_PAGE_DIRECTORY
+!define MUI_PAGE_CUSTOMFUNCTION_PRE SkipWhenUpdating
 !insertmacro MUI_PAGE_COMPONENTS
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW ShowUpdateHeader
 !insertmacro MUI_PAGE_INSTFILES
+!define MUI_PAGE_CUSTOMFUNCTION_PRE SkipWhenUpdating
 !insertmacro MUI_PAGE_FINISH
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
@@ -106,7 +114,19 @@ Function .onInit
   ClearErrors
   ${GetOptions} $R0 "/UPDATE" $R1
   ${IfNot} ${Errors}
-    Call WaitForAppExit
+    StrCpy $IsUpdate 1
+  ${EndIf}
+FunctionEnd
+
+Function SkipWhenUpdating
+  ${If} $IsUpdate == 1
+    Abort
+  ${EndIf}
+FunctionEnd
+
+Function ShowUpdateHeader
+  ${If} $IsUpdate == 1
+    !insertmacro MUI_HEADER_TEXT "Updating ${APP_NAME}" "${APP_NAME} will start again when the update to version ${VERSION} finishes."
   ${EndIf}
 FunctionEnd
 
@@ -130,10 +150,7 @@ Function WaitForAppExit
 FunctionEnd
 
 Function .onInstSuccess
-  ${GetParameters} $R0
-  ClearErrors
-  ${GetOptions} $R0 "/UPDATE" $R1
-  ${IfNot} ${Errors}
+  ${If} $IsUpdate == 1
     Call LaunchApp
   ${EndIf}
 FunctionEnd
@@ -149,6 +166,14 @@ FunctionEnd
 
 Section "${APP_NAME} (required)" SecApp
   SectionIn RO
+
+  ${If} $IsUpdate == 1
+    ; Close the progress page by itself when done (.onInstSuccess then starts the app)
+    SetAutoClose true
+    DetailPrint "Waiting for ${APP_NAME} to close..."
+    Call WaitForAppExit
+    DetailPrint "Updating ${APP_NAME} to version ${VERSION}..."
+  ${EndIf}
 
   ; Upgrade: let the installed version remove its own files first. /UPGRADE keeps its shortcuts and registration.
   IfFileExists "$INSTDIR\uninstall.exe" 0 +3

@@ -98,7 +98,10 @@ On GitLab, make the secrets Protected and Masked with environment scope `signing
 
 ### Signing and updates
 
-Installed Windows copies update themselves by running the new installer with `/S /UPDATE`. Before running it, the app
+Installed Windows copies update themselves by running the new installer with `/UPDATE /D=<install folder>`. In
+update mode the installer shows only its progress page ("Updating GitLab Desktop"), waits there for the app to exit,
+closes by itself when done and restarts the app. Versions up to 0.4.0 also pass `/S`, which runs the same update
+without a window. Before running the installer, the app
 checks the installer's Authenticode signature, but only when the running app is itself signed. A self-signed
 certificate is accepted only if the installer is signed with exactly the same certificate (matching thumbprint) as the
 running app. If releases are self-signed, changing the certificate means users must install the next version by hand

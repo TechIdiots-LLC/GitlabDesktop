@@ -60,7 +60,7 @@ GitLabDesktop.exe C:\path\to\repository
 The app checks for a new version when it starts and from **Help › Check for updates…**. When one is available you can:
 
 - **Install and restart** (Windows installer copies): the new installer is downloaded, its signature is checked, and
-  it installs silently and restarts the app.
+  the app closes while an "Updating GitLab Desktop" window shows the install's progress, then starts again.
 - **Download update** or **Open download page** (portable Windows copies, macOS and Android): the download opens in
   your browser. Your settings are kept when you install over the old version.
 - **Skip this version**: the startup check stops offering it. Newer versions are still offered, and

@@ -96,15 +96,16 @@ public static class WindowsUpdateInstaller
     private const int CertUntrustedRoot = unchecked((int)0x800B0109);
 
     /// <summary>
-    /// Starts the installer silently in update mode: it waits for this app to exit, upgrades the install in place
-    /// and starts the app again. Returns false if the user declined the UAC prompt. The caller must exit promptly.
+    /// Starts the installer in update mode: a progress window ("Updating …") that waits for this app to exit, upgrades
+    /// the install in place, closes by itself and starts the app again. Returns false if the user declined the UAC
+    /// prompt. The caller must exit promptly.
     /// </summary>
     public static bool Launch(string installerPath)
     {
         try
         {
             // /D= must come last and unquoted (NSIS rule); it keeps the update in the folder this copy runs from
-            Process.Start(new ProcessStartInfo(installerPath, $"/S /UPDATE /D={InstallDirectory}")
+            Process.Start(new ProcessStartInfo(installerPath, $"/UPDATE /D={InstallDirectory}")
             {
                 UseShellExecute = true,
                 Verb = "runas",

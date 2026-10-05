@@ -14,14 +14,14 @@ public sealed partial class SettingsViewModel : ModalViewModel<bool>
     readonly HostingRegistry _hosting;
 
     readonly GitRunner _git;
-    bool? _savedRecurseSubmodules;
+    bool? _savedRecurseSubmodules, _savedLongPaths;
 
     public SettingsViewModel(AppSettings settings, HostingRegistry hosting, GitRunner git)
     {
         _settings = settings;
         _hosting = hosting;
         _git = git;
-        _ = LoadRecurseSubmodulesAsync();
+        _ = LoadGitDefaultsAsync();
         foreach (var a in settings.Accounts.OrderBy(a => a.Host, StringComparer.OrdinalIgnoreCase).ThenBy(a => a.Repository is not null))
             Accounts.Add(new AccountViewModel(a, hosting, RemoveAccount));
         _repositoriesDirectory = settings.RepositoriesDirectory;
@@ -50,10 +50,23 @@ public sealed partial class SettingsViewModel : ModalViewModel<bool>
     /// </summary>
     [ObservableProperty] private bool _recurseSubmodules;
 
-    async Task LoadRecurseSubmodulesAsync()
+    /// <summary>
+    /// Git for Windows' core.longpaths: lets git create, check out and clone paths over 260 characters. Its installer
+    /// often turns it on in the system config; this shows and changes what git uses.
+    /// </summary>
+    [ObservableProperty] private bool _longPaths;
+
+    public bool ShowLongPaths => OperatingSystem.IsWindows();
+
+    async Task LoadGitDefaultsAsync()
     {
-        RecurseSubmodules = await GitRepository.GetGlobalBoolAsync(_git, "submodule.recurse") ?? false;
+        RecurseSubmodules = await GitRepository.GetDefaultBoolAsync(_git, "submodule.recurse") ?? false;
         _savedRecurseSubmodules = RecurseSubmodules;
+        if (ShowLongPaths)
+        {
+            LongPaths = await GitRepository.GetDefaultBoolAsync(_git, "core.longpaths") ?? false;
+            _savedLongPaths = LongPaths;
+        }
     }
 
     [ObservableProperty] private string _gitExecutable;
@@ -197,12 +210,17 @@ public sealed partial class SettingsViewModel : ModalViewModel<bool>
         AppUpdater.IncludePrereleases = IncludePrereleases;
         _settings.EditorCommand = EditorCommand.Trim();
         _settings.GitExecutable = GitExecutable;
-        if (_savedRecurseSubmodules is { } before && before != RecurseSubmodules)
+        foreach (var (key, before, now) in new[]
+                 {
+                     ("submodule.recurse", _savedRecurseSubmodules, RecurseSubmodules),
+                     ("core.longpaths", _savedLongPaths, LongPaths),
+                 })
         {
-            try { await GitRepository.SetGlobalBoolAsync(_git, "submodule.recurse", RecurseSubmodules); }
+            if (before is null || before == now) continue;   // not loaded (or not on Windows), or unchanged
+            try { await GitRepository.SetDefaultBoolAsync(_git, key, now); }
             catch (Exception ex)
             {
-                Error = $"Could not change git's submodule.recurse setting: {ex.Message}";
+                Error = $"Could not change git's {key} setting: {ex.Message}";
                 return;
             }
         }

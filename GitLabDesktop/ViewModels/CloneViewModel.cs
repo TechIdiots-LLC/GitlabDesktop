@@ -58,7 +58,7 @@ public sealed partial class CloneViewModel : ModalViewModel<string?>
 
     public async Task InitializeAsync()
     {
-        RecurseSubmodules = await GitRepository.GetGlobalBoolAsync(_git, "submodule.recurse") ?? false;
+        RecurseSubmodules = await GitRepository.GetDefaultBoolAsync(_git, "submodule.recurse") ?? false;
         await LoadProjectsAsync();
     }
 

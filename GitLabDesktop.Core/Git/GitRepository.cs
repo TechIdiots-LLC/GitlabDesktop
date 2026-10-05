@@ -46,19 +46,33 @@ public sealed partial class GitRepository(GitRunner git, string path)
         return git.RunAsync(parent, args, ct: ct);
     }
 
-    /// <summary>A boolean from the user's global git config, or null when it isn't set.</summary>
-    public static async Task<bool?> GetGlobalBoolAsync(GitRunner git, string key)
+    /// <summary>
+    /// A boolean as git uses it for every repository: from the user's global config, or else the system config (Git for
+    /// Windows sets core.longpaths there). Null when neither sets it. A repository's own config can still override it.
+    /// </summary>
+    public static async Task<bool?> GetDefaultBoolAsync(GitRunner git, string key)
     {
-        var r = await git.RunAsync(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ["config", "--global", "--type=bool", "--get", key], throwOnError: false);
+        // Run outside any repository, so only the system and global config apply
+        var r = await git.RunAsync(System.IO.Path.GetTempPath(), ["config", "--type=bool", "--get", key], throwOnError: false);
         return r.Success ? r.StdOut.Trim() == "true" : null;
     }
 
-    /// <summary>Sets a boolean in the global git config; false removes it, which git reads as false.</summary>
-    public static Task SetGlobalBoolAsync(GitRunner git, string key, bool value)
-        => git.RunAsync(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            value ? ["config", "--global", key, "true"] : ["config", "--global", "--unset", key],
-            throwOnError: value);   // unsetting a key that isn't there "fails" with exit code 5
+    /// <summary>
+    /// Turns a boolean on or off for every repository, in the user's global config. Off removes the global value, and
+    /// writes an explicit false only when the system config would otherwise still turn it on.
+    /// </summary>
+    public static async Task SetDefaultBoolAsync(GitRunner git, string key, bool value)
+    {
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (value)
+        {
+            await git.RunAsync(home, ["config", "--global", key, "true"]);
+            return;
+        }
+        await git.RunAsync(home, ["config", "--global", "--unset", key], throwOnError: false);   // exit 5 when not set
+        if (await GetDefaultBoolAsync(git, key) == true)
+            await git.RunAsync(home, ["config", "--global", key, "false"]);
+    }
 
     // ── Status ───────────────────────────────────────────────────────────────
 

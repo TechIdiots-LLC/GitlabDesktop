@@ -72,13 +72,14 @@
                     <Entry Text="{Binding RepositoriesDirectory}" />
                     <Button Grid.Column="1" Text="Browse…" Command="{Binding BrowseRepositoriesDirectoryCommand}" Style="{StaticResource SecondaryButton}" />
                 </Grid>
-                <HorizontalStackLayout Spacing="8">
+                <!-- Wraps: the two folder paths can be wider than the dialog -->
+                <FlexLayout Wrap="Wrap">
                     <Button Text="{Binding DefaultRepositoriesDirectory, StringFormat='Use default ({0})'}"
-                            Command="{Binding UseDefaultRepositoriesDirectoryCommand}" Style="{StaticResource SecondaryButton}" />
+                            Command="{Binding UseDefaultRepositoriesDirectoryCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" />
                     <Button Text="{Binding GitHubDesktopFolder, StringFormat='Use GitHub Desktop folder ({0})'}"
                             Command="{Binding UseGitHubDesktopFolderCommand}" IsVisible="{Binding HasGitHubDesktopFolder}"
-                            Style="{StaticResource SecondaryButton}" />
-                </HorizontalStackLayout>
+                            Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" />
+                </FlexLayout>
                 <Label Text="{Binding FoundRepositoriesText}" Style="{StaticResource SecondaryText}"
                        IsVisible="{Binding FoundRepositoriesText, Converter={StaticResource IsNotNullOrEmpty}}" />
                 <Grid ColumnDefinitions="Auto,*">
@@ -96,6 +97,14 @@
                         <Label Text="Include submodules" />
                         <Label Style="{StaticResource SecondaryText}"
                                Text="Clones include submodules by default, and switching branches or pulling updates them. This is git's own submodule.recurse setting, so git on the command line follows it too." />
+                    </VerticalStackLayout>
+                </Grid>
+                <Grid ColumnDefinitions="Auto,*" IsVisible="{Binding ShowLongPaths}">
+                    <CheckBox IsChecked="{Binding LongPaths}" VerticalOptions="Start" />
+                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
+                        <Label Text="Support long file paths" />
+                        <Label Style="{StaticResource SecondaryText}"
+                               Text="Lets git clone and check out repositories with paths longer than Windows' usual 260 characters. This is git's core.longpaths setting, so git on the command line follows it too." />
                     </VerticalStackLayout>
                 </Grid>
 

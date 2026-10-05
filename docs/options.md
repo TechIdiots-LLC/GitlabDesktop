@@ -16,6 +16,7 @@ GitLab, GitHub and other git server sign-ins. See [Accounts and signing in](acco
 | **Automatically add repositories found in this folder** | Adds repositories in the folder, and one level of subfolders, to the repository list. The line above it says how many were found. |
 | **Clone with SSH instead of HTTPS** | The default for the **SSH** box in the clone dialog. |
 | **Include submodules** | The default for **Include submodules** in the clone dialog. It is git's own `submodule.recurse` setting (in your global git config), so switching branches and pulling also update submodules, in the app and in git on the command line. Off unless you've turned it on. |
+| **Support long file paths** (Windows) | Lets git clone and check out repositories with paths longer than Windows' usual 260 characters. It is git's `core.longpaths` setting. Git for Windows often turns it on for everyone in its own (system) config; the box shows what git actually uses, and turning it off writes `false` to your global config when that's needed to override the system one. |
 
 ## Updates
 

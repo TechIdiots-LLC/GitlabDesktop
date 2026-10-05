@@ -9,32 +9,60 @@ public class GlobalGitConfig;
 [Collection(nameof(GlobalGitConfig))]
 public class SubmoduleTests
 {
-    [Fact]
-    public async Task GlobalBooleanSettingsRoundTripWithoutTouchingTheUsersConfig()
+    /// <summary>Points git's global and system config at temporary files (inherited by the git processes it runs).</summary>
+    static async Task WithTemporaryConfigAsync(string systemConfig, Func<string, Task> test)
     {
-        var file = Path.Combine(Path.GetTempPath(), "gld-gitconfig-" + Guid.NewGuid().ToString("N")[..8]);
-        File.WriteAllText(file, "");
-        var previous = Environment.GetEnvironmentVariable("GIT_CONFIG_GLOBAL");
-        Environment.SetEnvironmentVariable("GIT_CONFIG_GLOBAL", file);   // inherited by the git processes below
+        var global = Path.Combine(Path.GetTempPath(), "gld-global-" + Guid.NewGuid().ToString("N")[..8]);
+        var system = Path.Combine(Path.GetTempPath(), "gld-system-" + Guid.NewGuid().ToString("N")[..8]);
+        File.WriteAllText(global, "");
+        File.WriteAllText(system, systemConfig);
+        var previous = (Environment.GetEnvironmentVariable("GIT_CONFIG_GLOBAL"), Environment.GetEnvironmentVariable("GIT_CONFIG_SYSTEM"));
+        Environment.SetEnvironmentVariable("GIT_CONFIG_GLOBAL", global);
+        Environment.SetEnvironmentVariable("GIT_CONFIG_SYSTEM", system);
         try
         {
-            var git = new GitRunner();
-            Assert.Null(await GitRepository.GetGlobalBoolAsync(git, "submodule.recurse"));
-
-            await GitRepository.SetGlobalBoolAsync(git, "submodule.recurse", true);
-            Assert.True(await GitRepository.GetGlobalBoolAsync(git, "submodule.recurse"));
-            Assert.Contains("recurse = true", File.ReadAllText(file));
-
-            await GitRepository.SetGlobalBoolAsync(git, "submodule.recurse", false);
-            Assert.Null(await GitRepository.GetGlobalBoolAsync(git, "submodule.recurse"));
-            await GitRepository.SetGlobalBoolAsync(git, "submodule.recurse", false);   // already unset: no error
+            await test(global);
         }
         finally
         {
-            Environment.SetEnvironmentVariable("GIT_CONFIG_GLOBAL", previous);
-            File.Delete(file);
+            Environment.SetEnvironmentVariable("GIT_CONFIG_GLOBAL", previous.Item1);
+            Environment.SetEnvironmentVariable("GIT_CONFIG_SYSTEM", previous.Item2);
+            File.Delete(global);
+            File.Delete(system);
         }
     }
+
+    [Fact]
+    public Task DefaultSettingsRoundTripWithoutTouchingTheUsersConfig() => WithTemporaryConfigAsync("", async global =>
+    {
+        var git = new GitRunner();
+        Assert.Null(await GitRepository.GetDefaultBoolAsync(git, "submodule.recurse"));
+
+        await GitRepository.SetDefaultBoolAsync(git, "submodule.recurse", true);
+        Assert.True(await GitRepository.GetDefaultBoolAsync(git, "submodule.recurse"));
+        Assert.Contains("recurse = true", File.ReadAllText(global));
+
+        await GitRepository.SetDefaultBoolAsync(git, "submodule.recurse", false);
+        Assert.Null(await GitRepository.GetDefaultBoolAsync(git, "submodule.recurse"));
+        Assert.DoesNotContain("recurse", File.ReadAllText(global));   // removed, not set to false
+        await GitRepository.SetDefaultBoolAsync(git, "submodule.recurse", false);   // already unset: no error
+    });
+
+    [Fact]
+    public Task TurningOffASettingTheSystemConfigTurnsOnWritesFalse()
+        => WithTemporaryConfigAsync("[core]\n\tlongpaths = true\n", async global =>
+        {
+            // Git for Windows' installer sets core.longpaths in the system config
+            var git = new GitRunner();
+            Assert.True(await GitRepository.GetDefaultBoolAsync(git, "core.longpaths"));
+
+            await GitRepository.SetDefaultBoolAsync(git, "core.longpaths", false);
+            Assert.False(await GitRepository.GetDefaultBoolAsync(git, "core.longpaths"));
+            Assert.Contains("longpaths = false", File.ReadAllText(global));
+
+            await GitRepository.SetDefaultBoolAsync(git, "core.longpaths", true);
+            Assert.True(await GitRepository.GetDefaultBoolAsync(git, "core.longpaths"));
+        });
 
     [Fact]
     public async Task CloneWithoutSubmodulesLeavesThemOut()

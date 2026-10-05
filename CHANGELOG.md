@@ -6,6 +6,7 @@
 
 ### 🐞 Bug fixes
 - _...Add new stuff here..._
+- Installing an update no longer fails with "The downloaded installer isn't validly signed" when releases are signed with a self-signed certificate. The installer must still be untampered and signed with exactly the certificate the running app is signed with.
 
 ## 0.2.0
 ### ✨ Features and improvements

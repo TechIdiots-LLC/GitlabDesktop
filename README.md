@@ -40,3 +40,7 @@ dotnet test GitLabDesktop.Core.Tests
 
 [Building and releasing](docs/maintainers.md) covers the project layout, CI, releases, signing and version bumps.
 Changes are listed in [CHANGELOG.md](CHANGELOG.md).
+
+## License
+
+GitLab Desktop is released under the [BSD 3-Clause License](LICENSE).

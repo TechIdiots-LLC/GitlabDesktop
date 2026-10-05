@@ -36,6 +36,12 @@ public sealed class HostingRegistry(AppSettings settings, IHttpClientFactory htt
         return gl;
     }
 
+    /// <summary>A client without an account for a public github.com repository, for a few read-only calls.</summary>
+    public IHostingService? AnonymousFor(HostedRemote? remote)
+        => remote is not null && remote.Kind == HostingKind.GitHub && remote.IsOn(AppSettings.GitHubUrl)
+            ? GitHubClient.Anonymous(httpFactory.CreateClient("hosting"))
+            : null;
+
     /// <summary>The configured account client for this remote, or null (links still work without one).</summary>
     public IHostingService? For(HostedRemote? remote)
         => remote is null ? null : _services.FirstOrDefault(s => s.Service.IsConfigured && s.Service.Handles(remote)).Service;

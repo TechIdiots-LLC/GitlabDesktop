@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:GitLabDesktop.ViewModels"
+             xmlns:controls="clr-namespace:GitLabDesktop.Controls"
              x:Class="GitLabDesktop.Views.ConflictsPage"
              x:DataType="vm:ConflictsViewModel"
              x:Name="Root"
@@ -19,15 +20,7 @@
                                VerticalOptions="Center" WidthRequest="18"
                                TextColor="{Binding IsResolved, Converter={StaticResource ConflictColor}}" />
                         <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
-                            <Label LineBreakMode="HeadTruncation">
-                                <Label.FormattedText>
-                                    <FormattedString>
-                                        <Span Text="{Binding Directory}"
-                                              TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
-                                        <Span Text="{Binding FileName}" FontAttributes="Bold" />
-                                    </FormattedString>
-                                </Label.FormattedText>
-                            </Label>
+                            <controls:PathLabel Directory="{Binding Directory}" FileName="{Binding FileName}" FontSize="14" />
                             <Label Text="{Binding StatusText}" FontSize="12"
                                    TextColor="{Binding IsResolved, Converter={StaticResource ConflictColor}}" />
                         </VerticalStackLayout>

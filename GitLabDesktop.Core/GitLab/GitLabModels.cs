@@ -39,6 +39,10 @@ public sealed class GitLabMergeRequest
     public bool Draft { get; set; }
     public string? DetailedMergeStatus { get; set; }
     public GitLabUser? Author { get; set; }
+    public long SourceProjectId { get; set; }
+    public long TargetProjectId { get; set; }
+    public string? Sha { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
 }
 
 public sealed class GitLabPipeline

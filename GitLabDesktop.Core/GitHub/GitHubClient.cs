@@ -30,6 +30,14 @@ public sealed class GitHubClient(HttpClient http) : IHostingService
     public HostingKind Kind => HostingKind.GitHub;
     public bool IsConfigured => !string.IsNullOrEmpty(_token);
 
+    bool _anonymous;
+
+    /// <summary>
+    /// A client without an account, for reading public repositories (e.g. listing their pull requests). GitHub allows
+    /// about 60 such requests an hour per address, so callers should keep to one or two calls.
+    /// </summary>
+    public static GitHubClient Anonymous(HttpClient http) => new(http) { _anonymous = true };
+
     public void Configure(string? token)
     {
         _token = token?.Trim();
@@ -42,9 +50,9 @@ public sealed class GitHubClient(HttpClient http) : IHostingService
 
     HttpRequestMessage Request(HttpMethod method, string relative)
     {
-        if (!IsConfigured) throw new InvalidOperationException("GitHub is not configured. Add a GitHub account in Options.");
+        if (!IsConfigured && !_anonymous) throw new InvalidOperationException("GitHub is not configured. Add a GitHub account in Options.");
         var req = new HttpRequestMessage(method, $"{ApiBase}/{relative}");
-        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _token);
+        if (IsConfigured) req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _token);
         req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
         req.Headers.Add("X-GitHub-Api-Version", "2022-11-28");
         req.Headers.UserAgent.ParseAdd("GitLabDesktop/0.1");
@@ -109,7 +117,18 @@ public sealed class GitHubClient(HttpClient http) : IHostingService
         public string? DefaultBranch { get; set; }
     }
     sealed class Branch { public string Name { get; set; } = ""; }
-    sealed class Pull { public long Number { get; set; } public string Title { get; set; } = ""; public string HtmlUrl { get; set; } = ""; public bool Draft { get; set; } }
+    sealed class Pull
+    {
+        public long Number { get; set; }
+        public string Title { get; set; } = "";
+        public string HtmlUrl { get; set; } = "";
+        public bool Draft { get; set; }
+        public DateTimeOffset CreatedAt { get; set; }
+        public User? User { get; set; }
+        public PullRef? Head { get; set; }
+        public PullRef? Base { get; set; }
+    }
+    sealed class PullRef { public string Ref { get; set; } = ""; public string Sha { get; set; } = ""; public RepoInfo? Repo { get; set; } }
     sealed class CheckRunList { [JsonPropertyName("check_runs")] public List<CheckRun> Runs { get; set; } = []; }
     sealed class CheckRun { public string Status { get; set; } = ""; public string? Conclusion { get; set; } }
 
@@ -158,6 +177,23 @@ public sealed class GitHubClient(HttpClient http) : IHostingService
             $"repos/{Repo(projectPath)}/pulls?state=open&head={Uri.EscapeDataString(owner + ":" + sourceBranch)}", ct);
         return pulls.FirstOrDefault() is { } p ? new ChangeRequest(HostingKind.GitHub, p.Number, p.Title, p.HtmlUrl, p.Draft) : null;
     }
+
+    public async Task<IReadOnlyList<OpenChangeRequest>> ListOpenChangeRequestsAsync(string projectPath, CancellationToken ct = default)
+    {
+        var pulls = await GetAsync<List<Pull>>($"repos/{Repo(projectPath)}/pulls?state=open&sort=created&direction=desc&per_page=100", ct);
+        return pulls.Select(p =>
+        {
+            // A deleted fork leaves head.repo null; the request can still be fetched from the base repository.
+            var headRepo = p.Head?.Repo;
+            var fromFork = headRepo is null || !string.Equals(headRepo.FullName, p.Base?.Repo?.FullName, StringComparison.OrdinalIgnoreCase);
+            return new OpenChangeRequest(HostingKind.GitHub, p.Number, p.Title, p.HtmlUrl, p.Draft, p.User?.Login ?? "", p.CreatedAt,
+                p.Head?.Ref ?? "", fromFork ? headRepo?.FullName ?? "a deleted fork" : null,
+                fromFork ? headRepo?.CloneUrl : null, fromFork ? headRepo?.SshUrl : null, p.Head?.Sha);
+        }).ToList();
+    }
+
+    public Task<CiStatus?> GetChangeRequestCiStatusAsync(string projectPath, OpenChangeRequest request, CancellationToken ct = default)
+        => request.HeadSha is { Length: > 0 } sha ? GetCiStatusAsync(projectPath, sha, ct) : Task.FromResult<CiStatus?>(null);
 
     /// <summary>Combines the branch head's check runs (GitHub Actions and other apps) into one status.</summary>
     public async Task<CiStatus?> GetCiStatusAsync(string projectPath, string branch, CancellationToken ct = default)

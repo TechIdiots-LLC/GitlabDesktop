@@ -18,6 +18,26 @@ public sealed record ChangeRequest(HostingKind Kind, long Number, string Title, 
     public string Reference => Kind == HostingKind.GitHub ? $"#{Number}" : $"!{Number}";
 }
 
+/// <summary>An open merge/pull request as listed in the branch dropdown, with what checking it out needs.</summary>
+/// <param name="SourceBranch">The branch the request comes from, in <paramref name="SourceRepository"/>.</param>
+/// <param name="SourceRepository">
+/// The fork the request comes from ("owner/project"), or null when it comes from a branch of the project itself.
+/// </param>
+/// <param name="SourceHttpUrl">Clone URLs of the fork, when the request comes from one that still exists.</param>
+/// <param name="HeadSha">The request's latest commit, for its CI status.</param>
+public sealed record OpenChangeRequest(
+    HostingKind Kind, long Number, string Title, string WebUrl, bool Draft, string Author, DateTimeOffset CreatedAt,
+    string SourceBranch, string? SourceRepository, string? SourceHttpUrl, string? SourceSshUrl, string? HeadSha)
+{
+    /// <summary>"!12" on GitLab, "#12" on GitHub.</summary>
+    public string Reference => Kind == HostingKind.GitHub ? $"#{Number}" : $"!{Number}";
+
+    public bool FromFork => SourceRepository is not null;
+
+    /// <summary>The local branch for a request from a fork, like GitHub Desktop's "pr/12" (GitLab: "mr/12").</summary>
+    public string ForkBranchName => Kind == HostingKind.GitHub ? $"pr/{Number}" : $"mr/{Number}";
+}
+
 /// <summary>
 /// CI state of a branch: the latest GitLab pipeline, or GitHub's check runs combined.
 /// <see cref="Status"/> uses GitLab's vocabulary: success, failed, running, pending, canceled, skipped.
@@ -57,6 +77,12 @@ public interface IHostingService
     Task<IReadOnlyList<string>> ListBranchesAsync(string projectPath, CancellationToken ct = default);
 
     Task<ChangeRequest?> FindOpenChangeRequestAsync(string projectPath, string sourceBranch, CancellationToken ct = default);
+
+    /// <summary>Open merge/pull requests into the project, newest first.</summary>
+    Task<IReadOnlyList<OpenChangeRequest>> ListOpenChangeRequestsAsync(string projectPath, CancellationToken ct = default);
+
+    /// <summary>CI state of a request's latest commit (GitLab: its latest merge request pipeline).</summary>
+    Task<CiStatus?> GetChangeRequestCiStatusAsync(string projectPath, OpenChangeRequest request, CancellationToken ct = default);
     Task<CiStatus?> GetCiStatusAsync(string projectPath, string branch, CancellationToken ct = default);
     Task<ChangeRequest> CreateChangeRequestAsync(string projectPath, NewChangeRequest request, CancellationToken ct = default);
 }

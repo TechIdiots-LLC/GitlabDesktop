@@ -14,6 +14,21 @@ Click a branch to switch to it. Type in **Filter** and press Enter to switch to 
 branch creates a local branch that tracks it. If you have uncommitted changes, you're asked whether to
 [leave them on the current branch or bring them along](making-changes.md#switching-branches-with-uncommitted-changes).
 
+### Checking out a merge or pull request
+
+The second tab, **Merge requests** on GitLab or **Pull requests** on GitHub, lists the project's open requests with
+their number, author, age and CI status (✓ passed, ✗ failed, ● running). Type in **Filter** to search them. Choosing
+one checks out its branch, so you can try it or add commits:
+
+- A request from a branch of the project itself is checked out under that branch's name.
+- A request from someone's fork adds the fork as a remote (`fork-<owner>`) and checks its branch out as `pr/12`
+  (GitHub) or `mr/12` (GitLab). **Pull** then gets the author's new commits.
+- If the fork has been deleted, the request's commits are fetched from the project instead.
+
+This tab needs a GitLab or GitHub [account](accounts.md) with an access token for the server. For a public
+github.com repository it lists the pull requests without one, but without their CI status: GitHub allows only a few
+calls without signing in.
+
 ## Branch menu
 
 | Item | What it does |

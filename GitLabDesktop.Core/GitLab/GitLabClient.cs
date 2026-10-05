@@ -144,6 +144,37 @@ public sealed class GitLabClient(HttpClient http) : IHostingService
     public async Task<CiStatus?> GetCiStatusAsync(string projectPath, string branch, CancellationToken ct = default)
         => await GetLatestPipelineAsync(projectPath, branch, ct) is { } p ? new CiStatus(p.Status, p.WebUrl) : null;
 
+    public async Task<IReadOnlyList<OpenChangeRequest>> ListOpenChangeRequestsAsync(string projectPath, CancellationToken ct = default)
+    {
+        var list = await GetAsync<List<GitLabMergeRequest>>(
+            $"projects/{Id(projectPath)}/merge_requests?state=opened&order_by=created_at&sort=desc&per_page=100", ct);
+
+        // A merge request from a fork names its project only by id; look each fork up once for its clone URLs.
+        var forks = new Dictionary<long, GitLabProject?>();
+        foreach (var id in list.Where(m => m.SourceProjectId != m.TargetProjectId).Select(m => m.SourceProjectId).Distinct())
+        {
+            try { forks[id] = await GetAsync<GitLabProject>($"projects/{id}", ct); }
+            catch (GitLabApiException) { forks[id] = null; }   // deleted, or not visible to this account
+        }
+
+        return list.Select(m =>
+        {
+            var fromFork = m.SourceProjectId != m.TargetProjectId;
+            var fork = fromFork ? forks.GetValueOrDefault(m.SourceProjectId) : null;
+            return new OpenChangeRequest(HostingKind.GitLab, m.Iid, m.Title, m.WebUrl, m.Draft, m.Author?.Username ?? "",
+                m.CreatedAt, m.SourceBranch,
+                fromFork ? fork?.PathWithNamespace ?? $"project {m.SourceProjectId}" : null,
+                fork?.HttpUrlToRepo, fork?.SshUrlToRepo, m.Sha);
+        }).ToList();
+    }
+
+    public async Task<CiStatus?> GetChangeRequestCiStatusAsync(string projectPath, OpenChangeRequest request, CancellationToken ct = default)
+    {
+        var list = await GetAsync<List<GitLabPipeline>>(
+            $"projects/{Id(projectPath)}/merge_requests/{request.Number}/pipelines?per_page=1", ct);
+        return list.FirstOrDefault() is { } p ? new CiStatus(p.Status, p.WebUrl) : null;
+    }
+
     public async Task<ChangeRequest> CreateChangeRequestAsync(string projectPath, NewChangeRequest request, CancellationToken ct = default)
     {
         var title = request.Title.Trim();

@@ -36,14 +36,15 @@ public partial class MainPage : ContentPage, IDropdownHost
     async void OnDocumentationClicked(object? sender, EventArgs e) => await Launcher.Default.OpenAsync(new Uri(AppUpdater.DocumentationUrl));
 
     /// <summary>Shows a picker under the repository or branch button, as wide as GitHub Desktop's lists.</summary>
-    public Task<PickerItem?> ShowDropdownAsync(DropdownAnchor anchor, IReadOnlyList<PickerItem> items, IReadOnlyList<PickerItem> actions, string? emptyText)
+    public Task<PickerItem?> ShowDropdownAsync(DropdownAnchor anchor, IReadOnlyList<PickerItem> items, IReadOnlyList<PickerItem> actions,
+        string? emptyText, PickerTabSource? secondTab)
     {
         (DropdownLayer.Content as PickerDropdown)?.Cancel();
 
         var button = anchor == DropdownAnchor.Repository ? RepositoryButton : BranchButton;
         var x = button.X;
         var width = Math.Min(Math.Max(button.Width, 440), Math.Max(button.Width, Width - x));
-        var dropdown = new PickerDropdown(items, actions, emptyText);
+        var dropdown = new PickerDropdown(items, actions, emptyText, secondTab);
         dropdown.Place(x, Toolbar.Height, width);
         dropdown.Closed += (_, _) =>
         {

@@ -2,7 +2,23 @@ using GitLabDesktop.Views;
 
 namespace GitLabDesktop.Services;
 
-public sealed record PickerItem(string Title, string? Subtitle, object Value, string? Badge = null, string? Group = null);
+/// <param name="BadgeColor">Colours the badge (e.g. a CI status glyph); otherwise it is secondary text.</param>
+public sealed record PickerItem(string Title, string? Subtitle, object Value, string? Badge = null, string? Group = null,
+    Color? BadgeColor = null)
+{
+    public bool HasPlainBadge => !string.IsNullOrEmpty(Badge) && BadgeColor is null;
+    public bool HasColoredBadge => !string.IsNullOrEmpty(Badge) && BadgeColor is not null;
+}
+
+/// <summary>One state of a dropdown tab that loads in the background: its items and, optionally, a new title.</summary>
+public sealed record PickerTabUpdate(IReadOnlyList<PickerItem> Items, string? Title = null, string? EmptyText = null);
+
+/// <summary>
+/// A second dropdown tab (e.g. "Pull requests") filled in the background: each update replaces the list, so a
+/// first list can appear quickly and details (CI status) follow. Loading starts when the dropdown opens and stops
+/// when it closes.
+/// </summary>
+public sealed record PickerTabSource(string Title, string LoadingText, Func<CancellationToken, IAsyncEnumerable<PickerTabUpdate>> Load);
 
 /// <summary>The toolbar buttons a picker can drop down from.</summary>
 public enum DropdownAnchor { Repository, Branch }
@@ -10,7 +26,8 @@ public enum DropdownAnchor { Repository, Branch }
 /// <summary>The window that shows pickers as dropdowns (the main page).</summary>
 public interface IDropdownHost
 {
-    Task<PickerItem?> ShowDropdownAsync(DropdownAnchor anchor, IReadOnlyList<PickerItem> items, IReadOnlyList<PickerItem> actions, string? emptyText);
+    Task<PickerItem?> ShowDropdownAsync(DropdownAnchor anchor, IReadOnlyList<PickerItem> items, IReadOnlyList<PickerItem> actions,
+        string? emptyText, PickerTabSource? secondTab);
 }
 
 /// <summary>Alerts, prompts and modal pages shown on top of whatever is currently displayed.</summary>
@@ -59,12 +76,12 @@ public sealed class DialogService
     /// filter. While a dialog is open it is shown as a picker page instead, with the actions at the top of the list.
     /// </summary>
     public async Task<T?> DropdownAsync<T>(DropdownAnchor anchor, string title, IEnumerable<PickerItem> items,
-        IEnumerable<PickerItem>? actions = null, string? emptyText = null) where T : class
+        IEnumerable<PickerItem>? actions = null, string? emptyText = null, PickerTabSource? secondTab = null) where T : class
     {
         var list = items.ToList();
         var buttons = actions?.ToList() ?? [];
         if (DropdownHost is { } host && Application.Current!.Windows[0].Page!.Navigation.ModalStack.Count == 0)
-            return (await MainThread.InvokeOnMainThreadAsync(() => host.ShowDropdownAsync(anchor, list, buttons, emptyText)))?.Value as T;
+            return (await MainThread.InvokeOnMainThreadAsync(() => host.ShowDropdownAsync(anchor, list, buttons, emptyText, secondTab)))?.Value as T;
         return await PickAsync<T>(title, buttons.Select(a => a with { Title = $"+ {a.Title}" }).Concat(list.Select(i => i with { Group = null })), emptyText);
     }
 

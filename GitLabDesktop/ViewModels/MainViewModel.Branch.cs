@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.Input;
 using GitLabDesktop.Core.Git;
+using GitLabDesktop.Core.Hosting;
 using GitLabDesktop.Services;
 using GitLabDesktop.Views;
 
@@ -47,17 +48,101 @@ public sealed partial class MainViewModel
             .Select(b => new PickerItem(b.Name, null, b, Age(b), "Remote branches"));
 
         var picked = await _dialogs.DropdownAsync<object>(DropdownAnchor.Branch, "Switch branch", local.Concat(remote),
-            [new PickerItem("New branch", null, NewBranchMarker)]);
+            [new PickerItem("New branch", null, NewBranchMarker)], secondTab: ChangeRequestsTab());
         if (picked == NewBranchMarker) await NewBranchAsync(null, null);
         else if (picked is BranchInfo b && !b.IsCurrent) await SwitchToBranchAsync(b);
+        else if (picked is OpenChangeRequest request) await CheckoutChangeRequestAsync(request);
     }
 
-    async Task SwitchToBranchAsync(BranchInfo target)
+    static readonly Converters.PipelineStatusGlyphConverter CiGlyph = new();
+    static readonly Converters.PipelineStatusColorConverter CiColor = new();
+
+    /// <summary>
+    /// The branch dropdown's "Pull requests" / "Merge requests" tab, like GitHub Desktop's: the project's open requests,
+    /// then their CI status as it arrives. Null when the remote isn't on GitLab or GitHub.
+    /// </summary>
+    PickerTabSource? ChangeRequestsTab()
+    {
+        if (Remote is not { Kind: not HostingKind.Unknown } remote) return null;
+        var title = char.ToUpper(remote.ChangeRequestsName[0]) + remote.ChangeRequestsName[1..];
+        var group = $"{title} in {remote.ProjectPath}";
+
+        var needAccount = $"Add a {remote.ProviderName} account with an access token in File › Options to see {remote.ChangeRequestsName} here.";
+        // Without an account, a public github.com repository can still be listed (GitHub allows a few anonymous calls).
+        var signedIn = HostingService is not null;
+        if ((HostingService ?? _hosting.AnonymousFor(remote)) is not { } service)
+            return new PickerTabSource(title, "", _ => Single(new PickerTabUpdate([], EmptyText: needAccount)));
+
+        PickerItem Item(OpenChangeRequest r, CiStatus? ci) => new(r.Title,
+            $"{r.Reference} opened {Converters.RelativeTimeConverter.Format(r.CreatedAt)} by {r.Author}{(r.Draft ? " • Draft" : "")}",
+            r, ci is null ? null : (string)CiGlyph.Convert(ci.Status, typeof(string), null, System.Globalization.CultureInfo.CurrentCulture),
+            group, ci is null ? null : (Color)CiColor.Convert(ci.Status, typeof(Color), null, System.Globalization.CultureInfo.CurrentCulture));
+
+        async IAsyncEnumerable<PickerTabUpdate> Load([System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
+        {
+            IReadOnlyList<OpenChangeRequest> requests;
+            if (signedIn)
+            {
+                requests = await service.ListOpenChangeRequestsAsync(remote.ProjectPath, ct);
+            }
+            else
+            {
+                // A private repository (404) or the anonymous allowance used up (403): ask for an account instead.
+                var refused = false;
+                try { requests = await service.ListOpenChangeRequestsAsync(remote.ProjectPath, ct); }
+                catch (Core.GitHub.GitHubApiException) { requests = []; refused = true; }
+                if (refused)
+                {
+                    yield return new PickerTabUpdate([], EmptyText: needAccount);
+                    yield break;
+                }
+            }
+            var counted = $"{title} ({requests.Count})";
+            var empty = $"No open {remote.ChangeRequestsName} in {remote.ProjectPath}.";
+            yield return new PickerTabUpdate(requests.Select(r => Item(r, null)).ToList(), counted, empty);
+            if (!signedIn) yield break;   // one call per request would use up the anonymous allowance
+
+            // CI status per request: one call each, so only the newest, a few at a time
+            var statuses = new CiStatus?[requests.Count];
+            using var gate = new SemaphoreSlim(6);
+            await Task.WhenAll(requests.Take(50).Select(async (r, i) =>
+            {
+                await gate.WaitAsync(ct);
+                try { statuses[i] = await service.GetChangeRequestCiStatusAsync(remote.ProjectPath, r, ct); }
+                catch (Exception) when (!ct.IsCancellationRequested) { }   // a status is a nicety; the list stands without it
+                finally { gate.Release(); }
+            }));
+            if (statuses.Any(s => s is not null))
+                yield return new PickerTabUpdate(requests.Select((r, i) => Item(r, statuses[i])).ToList(), counted, empty);
+        }
+        return new PickerTabSource(title, $"Loading {remote.ChangeRequestsName}…", Load);
+    }
+
+    static async IAsyncEnumerable<PickerTabUpdate> Single(PickerTabUpdate update)
+    {
+        await Task.CompletedTask;
+        yield return update;
+    }
+
+    Task SwitchToBranchAsync(BranchInfo target)
+        => SwitchToAsync(target.IsRemote ? target.NameWithoutRemote : target.Name, () => Repo!.CheckoutAsync(target));
+
+    /// <summary>Checks out an open merge/pull request's branch (from a fork: "pr/12" or "mr/12" tracking the fork).</summary>
+    Task CheckoutChangeRequestAsync(OpenChangeRequest request)
+        => SwitchToAsync(request.FromFork ? request.ForkBranchName : request.SourceBranch,
+            () => Repo!.CheckoutChangeRequestAsync(RemoteName, request, preferSsh: _settings.CloneWithSsh));
+
+    /// <summary>Switches branch, first asking whether uncommitted changes stay on the current branch or come along.</summary>
+    async Task SwitchToAsync(string targetName, Func<Task> checkout)
     {
         var current = Status?.Branch;
-        var targetName = target.IsRemote ? target.NameWithoutRemote : target.Name;
+        if (current == targetName && ChangedFiles.Count == 0)
+        {
+            await RunAsync($"Updating {targetName}…", checkout);
+            return;
+        }
 
-        if (ChangedFiles.Count > 0 && current is not null)
+        if (ChangedFiles.Count > 0 && current is not null && current != targetName)
         {
             var leave = $"Leave my changes on {current}";
             var bring = $"Bring my changes to {targetName}";
@@ -75,7 +160,7 @@ public sealed partial class MainViewModel
             }
         }
 
-        await RunAsync($"Switching to {targetName}…", () => Repo!.CheckoutAsync(target));
+        await RunAsync($"Switching to {targetName}…", checkout);
 
         // Offer back changes that were left on this branch earlier.
         var stashes = await Repo!.GetStashesAsync();

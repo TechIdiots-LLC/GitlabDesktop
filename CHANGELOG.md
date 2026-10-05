@@ -3,6 +3,8 @@
 ## master
 ### ✨ Features and improvements
 - _...Add new stuff here..._
+- **Pull requests / Merge requests in the branch list**, like GitHub Desktop: a second tab lists the project's open requests with their number, author, age, draft state and CI status. Choosing one checks out its branch; one from a fork is added as a remote and tracked as `pr/12` (`mr/12` on GitLab), so pulling gets the author's new commits. Public github.com repositories are listed without an account (CI status then isn't shown); otherwise it needs a GitLab or GitHub account for the server.
+- Long file paths keep the file name whole and shorten the folder from the front ("…Core/GitHub/GitHubClient.cs"), and hovering shows the full path.
 
 ### 🐞 Bug fixes
 - _...Add new stuff here..._

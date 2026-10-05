@@ -143,6 +143,43 @@ public sealed class GitRepository(GitRunner git, string path)
         return DiffParser.Parse(change.Path, r.StdOut, selectable: false, initiallySelected: false);
     }
 
+    // ── Images ───────────────────────────────────────────────────────────────
+
+    /// <summary>A file's bytes at a revision ("HEAD", a commit sha), or null if it isn't there or is too large to preview.</summary>
+    async Task<ImageVersion?> ReadBlobAsync(string revision, string path)
+    {
+        // Check the size first so a huge blob isn't read into memory just to be refused.
+        var size = await Run(["cat-file", "-s", $"{revision}:{path}"], throwOnError: false);
+        if (!size.Success || !long.TryParse(size.StdOut.Trim(), out var bytes) || bytes > ImageDiff.MaxPreviewBytes) return null;
+        var data = await git.ReadBytesAsync(Path, ["cat-file", "blob", $"{revision}:{path}"]);
+        return data is null ? null : ImageVersion.From(data);
+    }
+
+    ImageVersion? ReadWorkingFile(string path)
+    {
+        var file = new FileInfo(System.IO.Path.Combine(Path, path));
+        return file.Exists && file.Length <= ImageDiff.MaxPreviewBytes ? ImageVersion.From(File.ReadAllBytes(file.FullName)) : null;
+    }
+
+    /// <summary>An image's version in HEAD and in the working tree, for the Changes tab.</summary>
+    public async Task<ImageDiff> GetWorkingImageDiffAsync(FileChange change, bool headIsUnborn)
+    {
+        bool inHead = !headIsUnborn && change.Kind is not (FileChangeKind.Untracked or FileChangeKind.Added);
+        var old = inHead ? await ReadBlobAsync("HEAD", change.OldPath ?? change.Path) : null;
+        var current = change.Kind == FileChangeKind.Deleted ? null : ReadWorkingFile(change.Path);
+        return new ImageDiff(old, current);
+    }
+
+    /// <summary>An image's version before and in a commit (compared with its first parent), for the History tab.</summary>
+    public async Task<ImageDiff> GetCommitImageDiffAsync(CommitInfo commit, FileChange change)
+    {
+        var old = commit.Parents.Count > 0 && change.Kind != FileChangeKind.Added
+            ? await ReadBlobAsync(commit.Parents[0], change.OldPath ?? change.Path)
+            : null;
+        var current = change.Kind == FileChangeKind.Deleted ? null : await ReadBlobAsync(commit.Sha, change.Path);
+        return new ImageDiff(old, current);
+    }
+
     // ── Commit ───────────────────────────────────────────────────────────────
 
     /// <summary>

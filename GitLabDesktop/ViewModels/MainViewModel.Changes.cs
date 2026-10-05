@@ -19,6 +19,14 @@ public sealed partial class MainViewModel
     [ObservableProperty] private IReadOnlyList<DiffLine>? _changeDiffLines;
     [ObservableProperty] private string? _changeDiffMessage;
 
+    /// <summary>Set instead of the text diff when the selected file is an image.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsChangeImage), nameof(IsChangeText))]
+    private ImageDiff? _changeImageDiff;
+
+    public bool IsChangeImage => ChangeImageDiff is not null;
+    public bool IsChangeText => ChangeImageDiff is null;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanCommit))]
     private string _commitSummary = "";
@@ -103,10 +111,22 @@ public sealed partial class MainViewModel
         {
             ChangeDiffLines = null;
             ChangeDiffMessage = null;
+            ChangeImageDiff = null;
             return;
         }
         try
         {
+            if (ImageDiff.IsImage(file.Change.Path))
+            {
+                // Shown as pictures (old and new), like GitHub Desktop; images are committed whole.
+                var image = await Repo.GetWorkingImageDiffAsync(file.Change, Status.IsUnborn);
+                if (SelectedChange != file) return;
+                ChangeDiffLines = null;
+                ChangeDiffMessage = null;
+                ChangeImageDiff = image;
+                return;
+            }
+            ChangeImageDiff = null;
             var diff = await Repo.GetWorkingDiffAsync(file.Change, Status.IsUnborn, file.IsIncluded);
             if (SelectedChange != file) return;
             file.SetDiff(diff);
@@ -115,6 +135,7 @@ public sealed partial class MainViewModel
         catch (Exception ex)
         {
             ChangeDiffLines = null;
+            ChangeImageDiff = null;
             ChangeDiffMessage = ex.Message;
         }
     }

@@ -115,6 +115,8 @@ public sealed partial class MainViewModel
         Commits.Clear();
         ChangeDiffLines = null;
         CommitDiffLines = null;
+        ChangeImageDiff = null;
+        CommitImageDiff = null;
         CommitFiles = null;
     }
 

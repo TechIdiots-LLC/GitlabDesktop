@@ -24,6 +24,14 @@ public sealed partial class MainViewModel
     [ObservableProperty] private IReadOnlyList<DiffLine>? _commitDiffLines;
     [ObservableProperty] private string? _commitDiffMessage;
 
+    /// <summary>Set instead of the text diff when the selected file in the commit is an image.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsCommitImage), nameof(IsCommitText))]
+    private ImageDiff? _commitImageDiff;
+
+    public bool IsCommitImage => CommitImageDiff is not null;
+    public bool IsCommitText => CommitImageDiff is null;
+
     public bool HasSelectedCommit => SelectedCommit is not null;
 
     public string? SelectedCommitMeta => SelectedCommit is { } c
@@ -82,6 +90,7 @@ public sealed partial class MainViewModel
         CommitFiles = null;
         CommitDiffLines = null;
         CommitDiffMessage = null;
+        CommitImageDiff = null;
         if (commit is null || Repo is null) return;
         try
         {
@@ -104,10 +113,21 @@ public sealed partial class MainViewModel
         if (file is null || SelectedCommit is not { } commit || Repo is null)
         {
             CommitDiffLines = null;
+            CommitImageDiff = null;
             return;
         }
         try
         {
+            if (ImageDiff.IsImage(file.Path))
+            {
+                var image = await Repo.GetCommitImageDiffAsync(commit, file);
+                if (SelectedCommitFile != file) return;
+                CommitDiffLines = null;
+                CommitDiffMessage = null;
+                CommitImageDiff = image;
+                return;
+            }
+            CommitImageDiff = null;
             var diff = await Repo.GetCommitDiffAsync(commit, file);
             if (SelectedCommitFile != file) return;
             ShowDiff(diff, lines => CommitDiffLines = lines, msg => CommitDiffMessage = msg);
@@ -115,6 +135,7 @@ public sealed partial class MainViewModel
         catch (Exception ex)
         {
             CommitDiffLines = null;
+            CommitImageDiff = null;
             CommitDiffMessage = ex.Message;
         }
     }

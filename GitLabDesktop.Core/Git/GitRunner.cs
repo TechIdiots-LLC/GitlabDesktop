@@ -40,18 +40,96 @@ public sealed class GitRunner
         bool throwOnError = true,
         CancellationToken ct = default)
     {
+        var psi = CreateStartInfo(workingDirectory, args, stdin is not null);
+        using var proc = Start(psi);
+
+        var stdoutTask = proc.StandardOutput.ReadToEndAsync(ct);
+        var stderrTask = proc.StandardError.ReadToEndAsync(ct);
+        if (stdin is not null)
+        {
+            await proc.StandardInput.WriteAsync(stdin.AsMemory(), ct);
+            proc.StandardInput.Close();
+        }
+
+        await WaitAsync(proc, ct);
+
+        var result = new GitResult(proc.ExitCode, await stdoutTask, await stderrTask);
+        Report(psi, result);
+
+        if (throwOnError && !result.Success)
+        {
+            var msg = string.IsNullOrWhiteSpace(result.StdErr) ? result.StdOut : result.StdErr;
+            throw new GitException(msg.Trim(), result);
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Runs git and returns its standard output as raw bytes (e.g. <c>git cat-file blob</c> for an image), or null when
+    /// git fails (such as the object not existing).
+    /// </summary>
+    public async Task<byte[]?> ReadBytesAsync(string workingDirectory, IEnumerable<string> args, CancellationToken ct = default)
+    {
+        var psi = CreateStartInfo(workingDirectory, args, redirectStdin: false);
+        using var proc = Start(psi);
+
+        using var stdout = new MemoryStream();
+        var copyTask = proc.StandardOutput.BaseStream.CopyToAsync(stdout, ct);
+        var stderrTask = proc.StandardError.ReadToEndAsync(ct);
+        await WaitAsync(proc, ct);
+        await copyTask;
+
+        var result = new GitResult(proc.ExitCode, $"({stdout.Length} bytes)", await stderrTask);
+        Report(psi, result);
+        return result.Success ? stdout.ToArray() : null;
+    }
+
+    void Report(ProcessStartInfo psi, GitResult result)
+        => CommandCompleted?.Invoke("git " + string.Join(' ', psi.ArgumentList.Skip(4)), result);
+
+    Process Start(ProcessStartInfo psi)
+    {
+        var proc = new Process { StartInfo = psi };
+        try
+        {
+            proc.Start();
+            return proc;
+        }
+        catch (Exception ex)
+        {
+            proc.Dispose();
+            throw new GitException($"Could not start git ({GitExecutable}): {ex.Message}. Is git installed?",
+                new GitResult(-1, "", ex.Message));
+        }
+    }
+
+    static async Task WaitAsync(Process proc, CancellationToken ct)
+    {
+        try
+        {
+            await proc.WaitForExitAsync(ct);
+        }
+        catch (OperationCanceledException)
+        {
+            try { proc.Kill(entireProcessTree: true); } catch { }
+            throw;
+        }
+    }
+
+    ProcessStartInfo CreateStartInfo(string workingDirectory, IEnumerable<string> args, bool redirectStdin)
+    {
         var psi = new ProcessStartInfo(GitExecutable)
         {
             WorkingDirectory = workingDirectory,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
-            RedirectStandardInput = stdin is not null,
+            RedirectStandardInput = redirectStdin,
             UseShellExecute = false,
             CreateNoWindow = true,
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8,
         };
-        if (stdin is not null)
+        if (redirectStdin)
             psi.StandardInputEncoding = Utf8NoBom;
 
         psi.ArgumentList.Add("-c");
@@ -76,45 +154,6 @@ public sealed class GitRunner
                 psi.Environment[$"GIT_CONFIG_VALUE_{i}"] = config[i].Value;
             }
         }
-
-        using var proc = new Process { StartInfo = psi };
-        try
-        {
-            proc.Start();
-        }
-        catch (Exception ex)
-        {
-            throw new GitException($"Could not start git ({GitExecutable}): {ex.Message}. Is git installed?",
-                new GitResult(-1, "", ex.Message));
-        }
-
-        var stdoutTask = proc.StandardOutput.ReadToEndAsync(ct);
-        var stderrTask = proc.StandardError.ReadToEndAsync(ct);
-        if (stdin is not null)
-        {
-            await proc.StandardInput.WriteAsync(stdin.AsMemory(), ct);
-            proc.StandardInput.Close();
-        }
-
-        try
-        {
-            await proc.WaitForExitAsync(ct);
-        }
-        catch (OperationCanceledException)
-        {
-            try { proc.Kill(entireProcessTree: true); } catch { }
-            throw;
-        }
-
-        var result = new GitResult(proc.ExitCode, await stdoutTask, await stderrTask);
-        var display = "git " + string.Join(' ', psi.ArgumentList.Skip(4));
-        CommandCompleted?.Invoke(display, result);
-
-        if (throwOnError && !result.Success)
-        {
-            var msg = string.IsNullOrWhiteSpace(result.StdErr) ? result.StdOut : result.StdErr;
-            throw new GitException(msg.Trim(), result);
-        }
-        return result;
+        return psi;
     }
 }

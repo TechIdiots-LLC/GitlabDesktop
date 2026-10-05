@@ -3,6 +3,7 @@
 ## master
 ### ✨ Features and improvements
 - _...Add new stuff here..._
+- **Image previews**: changed images (PNG, JPEG, GIF, BMP, ICO, WebP, TIFF) are shown as pictures instead of "Binary file changed", in Changes and History: the old one framed in red and the new one in green side by side, or a single "Added"/"Deleted" image, on a checkerboard so transparency shows, with format, pixel size and file size. Icons show their largest image.
 - New GitLab Desktop logo: the app, installer, taskbar and Start menu icons (sharp from 16 to 256 px on Windows), the macOS icon, the Android/iOS launcher icon and splash screen, and the welcome screen.
 
 ### 🐞 Bug fixes

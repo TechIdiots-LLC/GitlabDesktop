@@ -393,14 +393,16 @@
                 <Grid RowDefinitions="Auto,1,*" IsVisible="{Binding HasChanges}">
                     <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12" Padding="12,4">
                         <Label Text="{Binding SelectedChange.Change.Path}" FontAttributes="Bold" LineBreakMode="HeadTruncation" VerticalOptions="Center" />
-                        <Label Grid.Column="1" Text="Click the gutter to include or exclude lines" Style="{StaticResource SecondaryText}" VerticalOptions="Center" />
+                        <Label Grid.Column="1" Text="Click the gutter to include or exclude lines" Style="{StaticResource SecondaryText}" VerticalOptions="Center"
+                               IsVisible="{Binding IsChangeText}" />
                         <Button Grid.Column="2" Text="{Binding DiffExpandText}" Command="{Binding ToggleDiffExpandedCommand}"
                                 Style="{StaticResource SecondaryButton}" Padding="10,2" FontSize="12"
                                 ToolTipProperties.Text="Show the diff across the full width (toggle)" />
                     </Grid>
                     <BoxView Grid.Row="1" Style="{StaticResource Separator}" />
                     <controls:DiffView Grid.Row="2" Lines="{Binding ChangeDiffLines}" Message="{Binding ChangeDiffMessage}"
-                                       ToggleCommand="{Binding ToggleLineCommand}" />
+                                       ToggleCommand="{Binding ToggleLineCommand}" IsVisible="{Binding IsChangeText}" />
+                    <controls:ImageDiffView Grid.Row="2" Diff="{Binding ChangeImageDiff}" IsVisible="{Binding IsChangeImage}" />
                 </Grid>
 
                 <VerticalStackLayout IsVisible="{Binding HasChanges, Converter={StaticResource InvertBool}}" Spacing="10"
@@ -458,7 +460,9 @@
                     </CollectionView>
                     <controls:GridSplitter Grid.Column="1" PreferenceKey="split_history_files"
                                            MinimumSize="160" MinimumRemaining="300" IsVisible="{Binding ShowLists}" />
-                    <controls:DiffView Grid.Column="2" Lines="{Binding CommitDiffLines}" Message="{Binding CommitDiffMessage}" />
+                    <controls:DiffView Grid.Column="2" Lines="{Binding CommitDiffLines}" Message="{Binding CommitDiffMessage}"
+                                       IsVisible="{Binding IsCommitText}" />
+                    <controls:ImageDiffView Grid.Column="2" Diff="{Binding CommitImageDiff}" IsVisible="{Binding IsCommitImage}" />
                 </Grid>
             </Grid>
         </Grid>

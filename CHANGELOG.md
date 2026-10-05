@@ -3,10 +3,15 @@
 ## master
 ### ✨ Features and improvements
 - _...Add new stuff here..._
-- Installing an update on Windows now shows an "Updating GitLab Desktop" progress window instead of running silently, then starts the app again. The installed version starts the installer, so this shows from the update after this one.
 
 ### 🐞 Bug fixes
 - _...Add new stuff here..._
+
+## 0.4.1
+### ✨ Features and improvements
+- Installing an update on Windows now shows an "Updating GitLab Desktop" progress window instead of running silently, then starts the app again. The installed version starts the installer, so this shows from the update after this one.
+
+### 🐞 Bug fixes
 
 ## 0.4.0
 ### ✨ Features and improvements

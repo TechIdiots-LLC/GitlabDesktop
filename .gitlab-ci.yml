@@ -8,6 +8,8 @@
 #                           Windows zips and NSIS installers (build/installer.nsi), the Android APK (only when a release
 #                           keystore is configured) and the macOS .dmg (only with a macOS runner), and create the release
 #                           with the CHANGELOG.md notes. Releases wait for the tests.
+#   publish-play            Manual (▶) on a release pipeline: build an Android App Bundle and release it on Google Play
+#                           (track PLAY_TRACK, default internal).
 #   bump-version            Build > Pipelines > New pipeline with BUMP_VERSION set: bump the version and changelog,
 #                           push release-v<version> and open a merge request.
 #
@@ -21,6 +23,9 @@
 #   ANDROID_KEY_PASSWORD       Optional: key password, only if it differs from the keystore password
 #   SIG_PFX_B64, SIG_PFX_PASS  Optional: Windows code-signing .pfx (base64) and password; without them the Windows exe
 #                              and installers are published unsigned, with a warning
+#   PLAY_SERVICE_ACCOUNT_JSON_BASE64
+#                              Optional: base64 of a Google Play service account key, for the manual publish-play job
+#                              (Android App Bundle to Google Play, track internal by default; see docs/maintainers.md)
 #   MACOS_RUNNER               Optional, not secret: "true" when a macOS shell runner tagged "macos" is registered
 #   MACOS_SIGNING_IDENTITY, APPLE_ID, APPLE_TEAM_ID, APPLE_APP_PASSWORD
 #                              Optional: sign and notarize the macOS app (see build/build-macos.sh); the identity must
@@ -265,6 +270,52 @@ release-publish:
   resource_group: release
   script:
     - ./.gitlab/scripts/publish-release.ps1 -PackageName gitlabdesktop -ReleaseName "GitLab Desktop"
+
+# Google Play: run by hand (the ▶ button) on a release pipeline. Builds an Android App Bundle signed with the release
+# keystore (Play's upload key) and releases it on PLAY_TRACK (default internal). The .aab is kept as an artifact: the
+# very first upload of an app has to be done by hand in Play Console. See docs/maintainers.md.
+publish-play:
+  stage: release
+  rules:
+    - if: $BUMP_VERSION != "none"
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+      allow_failure: true
+  needs: [release-check, test]
+  environment: *signing-environment
+  resource_group: play-store
+  variables:
+    PLAY_TRACK: "internal"           # internal, alpha (closed testing), beta (open testing) or production
+    PLAY_RELEASE_STATUS: "completed" # or "draft" to review and roll out in Play Console
+  script:
+    - if ([string]::IsNullOrWhiteSpace($env:PLAY_SERVICE_ACCOUNT_JSON_BASE64)) { throw 'PLAY_SERVICE_ACCOUNT_JSON_BASE64 is not set (Settings > CI/CD > Variables, environment scope signing/main).' }
+    - if ([string]::IsNullOrWhiteSpace($env:ANDROID_KEYSTORE_BASE64)) { throw 'ANDROID_KEYSTORE_BASE64 is not set; Play bundles must be signed with the upload key.' }
+    - $keystore = Join-Path ([IO.Path]::GetTempPath()) "gitlabdesktop-play-$env:CI_JOB_ID.keystore"
+    - '[IO.File]::WriteAllBytes($keystore, [Convert]::FromBase64String($env:ANDROID_KEYSTORE_BASE64))'
+    - $keyPassword = if ($env:ANDROID_KEY_PASSWORD) { $env:ANDROID_KEY_PASSWORD } else { $env:ANDROID_KEYSTORE_PASSWORD }
+    - ./build/Test-AndroidKeystore.ps1 -Keystore $keystore -StorePassword $env:ANDROID_KEYSTORE_PASSWORD -Alias $env:ANDROID_KEY_ALIAS -KeyPassword $keyPassword
+    - dotnet workload restore GitLabDesktop.sln
+    - dotnet restore GitLabDesktop.sln
+    # Play takes App Bundles (.aab), not APKs; ApplicationVersion is the versionCode and must rise with every upload
+    - dotnet publish GitLabDesktop/GitLabDesktop.csproj -f net10.0-android36.0 -c Release -p:AndroidPackageFormat=aab
+        -p:AndroidKeyStore=true "-p:AndroidSigningKeyStore=$keystore" "-p:AndroidSigningStorePass=$env:ANDROID_KEYSTORE_PASSWORD"
+        "-p:AndroidSigningKeyAlias=$env:ANDROID_KEY_ALIAS" "-p:AndroidSigningKeyPass=$keyPassword"
+        --output ./publish/play
+    - $aab = Get-ChildItem ./publish/play -Filter *-Signed.aab -Recurse | Select-Object -First 1
+    - if (-not $aab) { $aab = Get-ChildItem ./publish/play -Filter *.aab -Recurse | Select-Object -First 1 }
+    - if (-not $aab) { throw 'No .aab found under ./publish/play' }
+    - New-Item -ItemType Directory play-files -Force | Out-Null
+    - Copy-Item $aab.FullName "./play-files/GitLabDesktop-v$env:RELEASE_VERSION.aab"
+    - python -m pip install --quiet --disable-pip-version-check google-api-python-client google-auth
+    - python build/publish-play.py --aab "./play-files/GitLabDesktop-v$env:RELEASE_VERSION.aab" --version $env:RELEASE_VERSION --track $env:PLAY_TRACK --status $env:PLAY_RELEASE_STATUS
+  after_script:
+    - Remove-Item (Join-Path ([IO.Path]::GetTempPath()) "gitlabdesktop-play-$env:CI_JOB_ID.keystore") -Force -ErrorAction SilentlyContinue
+  artifacts:
+    when: always
+    paths:
+      - play-files/
+    expire_in: 30 days
 
 # Run by hand (the ▶ button on a main pipeline) to test the Android signing variables without making a release.
 android-keystore-check:

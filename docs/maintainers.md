@@ -92,6 +92,7 @@ The macOS jobs run only when the CI/CD variable `MACOS_RUNNER` is `true` and a r
 | `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD` | Optional: the Android APK in releases. `build/Test-AndroidKeystore.ps1` checks a keystore and its passwords. |
 | `MACOS_SIGNING_IDENTITY`, plus on GitHub `MACOS_CERT_P12_BASE64`, `MACOS_CERT_PASSWORD` | Optional: Developer ID signing of the macOS app. |
 | `APPLE_ID`, `APPLE_TEAM_ID`, `APPLE_APP_PASSWORD` | Optional: notarizing the signed macOS app. |
+| `PLAY_SERVICE_ACCOUNT_JSON_BASE64` (GitHub: `PLAY_SERVICE_ACCOUNT_JSON`) | Optional: publishing to Google Play. See [Google Play](#google-play). |
 
 On GitLab, make the secrets Protected and Masked with environment scope `signing/main`. On GitHub, put them in the
 `release` environment.
@@ -109,6 +110,40 @@ once.
 
 The app finds releases on this project's GitLab releases first, and GitHub's as a fallback. The project locations are
 constants in `GitLabDesktop/Services/AppUpdater.cs`, along with the documentation link used by Help › Documentation.
+
+### Google Play
+
+The app is published on Google Play by the developer account **techidiots-llc**, as package `net.techidiots.gitlabdesktop`.
+Publishing is never automatic. On GitLab, start the **publish-play** job (▶) on the release pipeline of the version
+you want to publish; on GitHub, run **Actions › Publish to Google Play** (it publishes the version on the branch you
+run it from). Either one builds an Android App Bundle (`.aab`) signed with the release keystore, uploads it, and
+releases it on the `internal` testing track, with that version's changelog section as release notes (cut to Play's
+500 characters). The bundle is also kept as an artifact for 30 days.
+
+The job's variables choose where it goes: `PLAY_TRACK` (`internal`, `alpha` for closed testing, `beta` for open
+testing, or `production`) and `PLAY_RELEASE_STATUS` (`completed`, or `draft` to review and roll out in Play Console).
+Set them when starting the job. Every upload needs a higher version code than the last; that is
+`<ApplicationVersion>` in `GitLabDesktop.csproj`, which the version bump raises.
+
+The Android app is still a preview (there is no git on phones), and Play's review can reject apps whose main
+features don't work. Keep it on the internal testing track, which isn't reviewed, until it does.
+
+**Setting up Play (once):**
+
+1. In Play Console, create the app, with the package name `net.techidiots.gitlabdesktop`.
+2. Upload the first bundle by hand: run the publish-play job once (the upload step fails, since Google only accepts API
+   uploads for an app that already has a bundle), download the `.aab` from the job's artifacts, and upload it in
+   Play Console › Testing › Internal testing › Create new release. This also sets up Play App Signing, with the
+   release keystore as the upload key. Keep that keystore safe: every later upload must be signed with it.
+3. In Google Cloud, create a service account (no roles needed in Cloud), create a JSON key for it, and enable the
+   Google Play Android Developer API for the project.
+4. In Play Console › Users and permissions, invite the service account's email, and give it access to the app with
+   "Release to testing tracks" (and "Release to production" if you will publish there).
+5. Store the key: on GitLab as `PLAY_SERVICE_ACCOUNT_JSON_BASE64` (the JSON file base64-encoded, so it can be masked),
+   Protected and Masked with environment scope `signing/main`; on GitHub as `PLAY_SERVICE_ACCOUNT_JSON` (the JSON as
+   is) in the `release` environment.
+
+On GitHub, the track and status are chosen when running the workflow instead of through variables.
 
 ## Documentation
 

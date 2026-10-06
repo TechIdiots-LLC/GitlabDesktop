@@ -3,11 +3,16 @@
 ## master
 ### ✨ Features and improvements
 - _...Add new stuff here..._
+
+### 🐞 Bug fixes
+- _...Add new stuff here..._
+
+## 0.4.7
+### ✨ Features and improvements
 - Right-click the repository or branch in the toolbar, like GitHub Desktop: copy the repository name, path or remote URL, or the branch name, its link or its merge/pull request link, plus quick access to rename, delete, view on GitLab/GitHub and open elsewhere.
 - **Copy diffs for AI assistants and issues**: Copy diff on a changed file, Copy all changes as patch on the changes header, and Copy commit as patch in History copy plain unified diffs (new files included; commits with their message). The status bar confirms what was copied.
 
 ### 🐞 Bug fixes
-- _...Add new stuff here..._
 - 0.4.6's cleanup of broken submodule leftovers could mistake folders inside real submodule repositories (such as `objects/pack` or `hooks`) for leftovers and try to delete them, failing with "Access to the path 'pack-….idx' is denied". It now only ever removes a submodule folder that has no repository in it, and never looks inside a real one.
 
 ## 0.4.6

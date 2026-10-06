@@ -3,11 +3,16 @@
 ## master
 ### ✨ Features and improvements
 - _...Add new stuff here..._
+
+### 🐞 Bug fixes
+- _...Add new stuff here..._
+
+## 0.4.5
+### ✨ Features and improvements
 - **Cherry-pick commit…** asks which branch to apply the commit to, like GitHub Desktop, and switches there first, instead of always using the current branch.
 - Cloning shows git's progress, like GitHub Desktop: a progress bar across the whole clone and what git is doing ("Receiving objects: 45% (450/1000), 1.20 MiB | 2.00 MiB/s", "Resolving deltas", "Updating files"), instead of just "Cloning…".
 
 ### 🐞 Bug fixes
-- _...Add new stuff here..._
 - Switching to a branch that adds a submodule failed with "not a git repository: …/.git/modules/…" when Include submodules (git's `submodule.recurse`) is on, leaving the working folder half switched. Switching, pulling, merging and rebasing now move the branch first and then update submodules (`git submodule update --init --recursive`), cloning new ones and clearing the empty leftovers such a failure leaves behind.
 
 ## 0.4.4

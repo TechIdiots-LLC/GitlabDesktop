@@ -3,10 +3,15 @@
 ## master
 ### ✨ Features and improvements
 - _...Add new stuff here..._
-- Right-click a file in a commit in History, like GitHub Desktop: show or open it, copy its diff in that commit or its path, or view the file as it was in that commit on GitLab/GitHub.
 
 ### 🐞 Bug fixes
 - _...Add new stuff here..._
+
+## 0.5.0
+### ✨ Features and improvements
+- Right-click a file in a commit in History, like GitHub Desktop: show or open it, copy its diff in that commit or its path, or view the file as it was in that commit on GitLab/GitHub.
+
+### 🐞 Bug fixes
 
 ## 0.4.7
 ### ✨ Features and improvements

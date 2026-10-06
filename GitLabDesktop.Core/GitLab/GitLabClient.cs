@@ -146,8 +146,15 @@ public sealed class GitLabClient(HttpClient http) : IHostingService
 
     public async Task<IReadOnlyList<OpenChangeRequest>> ListOpenChangeRequestsAsync(string projectPath, CancellationToken ct = default)
     {
-        var list = await GetAsync<List<GitLabMergeRequest>>(
-            $"projects/{Id(projectPath)}/merge_requests?state=opened&order_by=created_at&sort=desc&per_page=100", ct);
+        // Up to 300, newest first: a busy project can have more than one page open
+        var list = new List<GitLabMergeRequest>();
+        for (int page = 1; page <= 3; page++)
+        {
+            var batch = await GetAsync<List<GitLabMergeRequest>>(
+                $"projects/{Id(projectPath)}/merge_requests?state=opened&order_by=created_at&sort=desc&per_page=100&page={page}", ct);
+            list.AddRange(batch);
+            if (batch.Count < 100) break;
+        }
 
         // A merge request from a fork names its project only by id; look each fork up once for its clone URLs.
         var forks = new Dictionary<long, GitLabProject?>();

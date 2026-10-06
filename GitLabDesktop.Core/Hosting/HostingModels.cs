@@ -36,6 +36,22 @@ public sealed record OpenChangeRequest(
 
     /// <summary>The local branch for a request from a fork, like GitHub Desktop's "pr/12" (GitLab: "mr/12").</summary>
     public string ForkBranchName => Kind == HostingKind.GitHub ? $"pr/{Number}" : $"mr/{Number}";
+
+    public ChangeRequest ToChangeRequest() => new(Kind, Number, Title, WebUrl, Draft);
+
+    /// <summary>
+    /// The open request a local branch belongs to: one whose latest commit is one of <paramref name="commits"/> (the
+    /// branch's tip, so a request from a fork is found too), else one from the project's own branch of that name, else
+    /// the only request from a branch of that name. Null when none, or when forks' same-named branches make it a guess.
+    /// </summary>
+    public static OpenChangeRequest? ForBranch(IEnumerable<OpenChangeRequest> requests, string branch, IEnumerable<string?> commits)
+    {
+        var named = requests.Where(r => r.SourceBranch == branch).ToList();
+        var shas = commits.Where(c => !string.IsNullOrEmpty(c)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return named.FirstOrDefault(r => r.HeadSha is { } sha && shas.Contains(sha))
+               ?? named.FirstOrDefault(r => !r.FromFork)
+               ?? (named.Count == 1 ? named[0] : null);
+    }
 }
 
 /// <summary>

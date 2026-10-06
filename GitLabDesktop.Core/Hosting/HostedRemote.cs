@@ -114,6 +114,14 @@ public sealed record HostedRemote(HostingKind Kind, string Host, string ProjectP
         _ => null,
     };
 
+    /// <summary>The open merge/pull requests from a branch (the list, when the app can't tell which one).</summary>
+    public string? ChangeRequestsForBranchLink(string branch) => Kind switch
+    {
+        HostingKind.GitLab => $"{Pages}/merge_requests?state=opened&source_branch={Uri.EscapeDataString(branch)}",
+        HostingKind.GitHub => $"{WebUrl}/pulls?q={Uri.EscapeDataString($"is:pr is:open head:{branch}")}",
+        _ => null,
+    };
+
     public string? CiLink(string branch) => Kind switch
     {
         HostingKind.GitLab => $"{Pages}/pipelines?ref={Uri.EscapeDataString(branch)}",

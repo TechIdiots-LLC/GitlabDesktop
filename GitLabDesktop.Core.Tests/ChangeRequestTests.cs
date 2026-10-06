@@ -190,3 +190,36 @@ public class ChangeRequestTests
         Assert.Equal("fix\n", r.Clone.Read("a.txt").Replace("\r\n", "\n"));
     }
 }
+
+public class ChangeRequestForBranchTests
+{
+    static OpenChangeRequest R(long n, string branch, string? fork = null, string? sha = null)
+        => new(HostingKind.GitHub, n, $"#{n}", $"https://github.com/o/p/pull/{n}", false, "a", DateTimeOffset.UnixEpoch,
+            branch, fork, null, null, sha);
+
+    [Fact]
+    public void PrefersTheRequestWhoseLatestCommitIsTheBranchTip()
+    {
+        // Two forks with a same-named branch; the tip decides
+        var list = new[] { R(1, "fix", "alice/p", "aaa"), R(2, "fix", "bob/p", "bbb"), R(3, "other", null, "bbb") };
+        Assert.Equal(2, OpenChangeRequest.ForBranch(list, "fix", ["bbb"])!.Number);
+    }
+
+    [Fact]
+    public void ElseTheProjectsOwnBranchElseTheOnlyOne()
+    {
+        Assert.Equal(5, OpenChangeRequest.ForBranch([R(4, "feature", "alice/p"), R(5, "feature")], "feature", ["zzz"])!.Number);
+        Assert.Equal(6, OpenChangeRequest.ForBranch([R(6, "feature", "alice/p")], "feature", [null])!.Number);
+        Assert.Null(OpenChangeRequest.ForBranch([R(7, "feature", "alice/p"), R(8, "feature", "bob/p")], "feature", ["zzz"]));
+        Assert.Null(OpenChangeRequest.ForBranch([R(9, "main")], "feature", ["zzz"]));
+    }
+
+    [Fact]
+    public void ListLinksForABranch()
+    {
+        Assert.Equal("https://github.com/o/p/pulls?q=is%3Apr%20is%3Aopen%20head%3Afeature%2Fterrain-3d",
+            HostedRemote.Parse("https://github.com/o/p.git")!.ChangeRequestsForBranchLink("feature/terrain-3d"));
+        Assert.Equal("https://gitlab.com/g/p/-/merge_requests?state=opened&source_branch=feature%2Fx",
+            HostedRemote.Parse("https://gitlab.com/g/p.git")!.ChangeRequestsForBranchLink("feature/x"));
+    }
+}

@@ -180,7 +180,14 @@ public sealed class GitHubClient(HttpClient http) : IHostingService
 
     public async Task<IReadOnlyList<OpenChangeRequest>> ListOpenChangeRequestsAsync(string projectPath, CancellationToken ct = default)
     {
-        var pulls = await GetAsync<List<Pull>>($"repos/{Repo(projectPath)}/pulls?state=open&sort=created&direction=desc&per_page=100", ct);
+        // Up to 300, newest first: a busy project can have more than one page open
+        var pulls = new List<Pull>();
+        for (int page = 1; page <= 3; page++)
+        {
+            var batch = await GetAsync<List<Pull>>($"repos/{Repo(projectPath)}/pulls?state=open&sort=created&direction=desc&per_page=100&page={page}", ct);
+            pulls.AddRange(batch);
+            if (batch.Count < 100) break;
+        }
         return pulls.Select(p =>
         {
             // A deleted fork leaves head.repo null; the request can still be fetched from the base repository.

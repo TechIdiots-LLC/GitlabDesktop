@@ -311,7 +311,8 @@ public sealed partial class MainViewModel : ObservableObject
             }
             var crTask = service.FindOpenChangeRequestAsync(remote.ProjectPath, branch);
             var ciTask = service.GetCiStatusAsync(remote.ProjectPath, branch);
-            var cr = await crTask;
+            // The lookup by branch name only sees requests from the project's own branches; else look through them all
+            var cr = await crTask ?? await FindChangeRequestForBranchAsync(service, lookUpDirectly: false);
             var ci = await ciTask;
             if (Remote != remote || Status?.Branch != branch) return;   // moved on meanwhile
             ChangeRequest = cr;

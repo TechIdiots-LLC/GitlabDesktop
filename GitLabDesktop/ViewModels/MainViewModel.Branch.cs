@@ -409,15 +409,41 @@ public sealed partial class MainViewModel
             await _platform.OpenUrlAsync(ChangeRequest.WebUrl);
             return;
         }
+        // Look through the open requests: finds one from a fork too, and needs no account for a public github.com project
+        if (await FindChangeRequestForBranchAsync(HostingService ?? _hosting.AnonymousFor(Remote)) is { } found)
+        {
+            await _platform.OpenUrlAsync(found.WebUrl);
+            return;
+        }
         var name = Remote!.ChangeRequestName;
         if (HostingService is null)
         {
-            // Without an account we cannot look it up; the host's list page is the next best thing.
-            await OpenLinkAsync(Remote.ChangeRequestsLink);
+            // Couldn't check (no account): the requests from this branch, rather than every request
+            await OpenLinkAsync(Status?.Branch is { } branch ? Remote.ChangeRequestsForBranchLink(branch) : Remote.ChangeRequestsLink);
             return;
         }
         if (await _dialogs.ConfirmAsync($"No {name}", $"There is no open {name} for {BranchName}. Create one?", $"Create {name}"))
             await CreateChangeRequest();
+    }
+
+    /// <summary>
+    /// The open request the current branch belongs to, found among all the project's open requests (see
+    /// <see cref="OpenChangeRequest.ForBranch"/>): unlike a lookup by branch name, this finds one from a fork.
+    /// </summary>
+    async Task<ChangeRequest?> FindChangeRequestForBranchAsync(IHostingService? service, bool lookUpDirectly = true)
+    {
+        if (service is null || Remote is not { } remote || Status is not { Branch: { } branch } status) return null;
+        try
+        {
+            // The exact lookup first (a request from the project's own branch: one call, however many are open)
+            if (lookUpDirectly && await service.FindOpenChangeRequestAsync(remote.ProjectPath, branch) is { } direct) return direct;
+            var requests = await service.ListOpenChangeRequestsAsync(remote.ProjectPath);
+            return OpenChangeRequest.ForBranch(requests, branch, [status.HeadSha])?.ToChangeRequest();
+        }
+        catch (Exception)
+        {
+            return null;   // e.g. a private repository without an account: the caller falls back to a link
+        }
     }
 
     [RelayCommand]

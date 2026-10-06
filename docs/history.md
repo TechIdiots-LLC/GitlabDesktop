@@ -25,7 +25,7 @@ Right-click a commit for:
 | **Revert changes in commit** | Makes a new commit that undoes this one. |
 | **Create branch from commit** | A new branch starting at this commit. |
 | **Create tag…** | Tags this commit. |
-| **Cherry-pick commit…** | Applies this commit's changes onto the current branch. |
+| **Cherry-pick commit…** | Pick the branch to apply this commit to (the current branch is listed first). Choosing another branch switches to it first, asking about uncommitted changes as usual. |
 | **Copy SHA** / **Copy tag** | Copies the commit's full SHA or its tag. |
 | **View commit in browser** | Opens the commit on GitLab, GitHub or the server. |
 

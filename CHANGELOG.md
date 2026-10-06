@@ -3,6 +3,7 @@
 ## master
 ### ✨ Features and improvements
 - _...Add new stuff here..._
+- **Cherry-pick commit…** asks which branch to apply the commit to, like GitHub Desktop, and switches there first, instead of always using the current branch.
 - Cloning shows git's progress, like GitHub Desktop: a progress bar across the whole clone and what git is doing ("Receiving objects: 45% (450/1000), 1.20 MiB | 2.00 MiB/s", "Resolving deltas", "Updating files"), instead of just "Cloning…".
 
 ### 🐞 Bug fixes

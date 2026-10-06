@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GitLabDesktop.Core.Git;
+using GitLabDesktop.Services;
 
 namespace GitLabDesktop.ViewModels;
 
@@ -188,11 +189,32 @@ public sealed partial class MainViewModel
         await LoadHistoryAsync();
     }
 
+    /// <summary>
+    /// Like GitHub Desktop's "Cherry-pick commit…": choose the branch to apply the commit to (the current one is listed
+    /// first), switch there if it's another (asking about uncommitted changes as usual), then apply it.
+    /// </summary>
     public async Task CherryPickCommitAsync(CommitInfo commit)
     {
-        if (!await _dialogs.ConfirmAsync("Cherry-pick", $"Apply {commit.ShortSha} \"{commit.Summary}\" onto {BranchName}?", "Cherry-pick"))
-            return;
-        await RunAsync("Cherry-picking…", () => Repo!.CherryPickAsync(commit.Sha));
+        if (Repo is null) return;
+        var branches = await Repo.GetBranchesAsync();
+        var localNames = branches.Where(b => !b.IsRemote).Select(b => b.Name).ToHashSet();
+        static string? Age(BranchInfo b) => b.LastCommitDate is { } d ? Converters.RelativeTimeConverter.Format(d) : null;
+        var items = branches
+            .Where(b => !b.IsRemote || !localNames.Contains(b.NameWithoutRemote))
+            .OrderByDescending(b => b.IsCurrent).ThenBy(b => b.IsRemote)
+            .Select(b => new PickerItem(b.Name,
+                b.IsCurrent ? "current branch" : b.IsRemote ? "remote branch" : b.Upstream is { } u ? $"tracks {u}" : null, b, Age(b)));
+
+        var target = await _dialogs.PickAsync<BranchInfo>($"Cherry-pick {commit.ShortSha} \"{commit.Summary}\" to a branch", items);
+        if (target is null) return;
+
+        var targetName = target.IsRemote ? target.NameWithoutRemote : target.Name;
+        if (!target.IsCurrent)
+        {
+            await SwitchToAsync(targetName, () => Repo.CheckoutAsync(target));
+            if (Status?.Branch != targetName) return;   // cancelled, or the switch failed
+        }
+        await RunAsync($"Cherry-picking onto {targetName}…", () => Repo.CherryPickAsync(commit.Sha));
     }
 
     public Task CopyShaAsync(CommitInfo commit) => _platform.CopyAsync(commit.Sha);

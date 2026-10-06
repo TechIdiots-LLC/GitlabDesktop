@@ -27,6 +27,7 @@ Right-click a commit for:
 | **Create tag…** | Tags this commit. |
 | **Cherry-pick commit…** | Pick the branch to apply this commit to (the current branch is listed first). Choosing another branch switches to it first, asking about uncommitted changes as usual. |
 | **Copy SHA** / **Copy tag** | Copies the commit's full SHA or its tag. |
+| **Copy commit as patch** | Copies the commit as `git show` prints it: author, date, message and diff. Handy for asking an AI assistant about a change. |
 | **View commit in browser** | Opens the commit on GitLab, GitHub or the server. |
 
 If a revert or cherry-pick stops with conflicts, see

@@ -104,6 +104,7 @@ public partial class MainPage : ContentPage, IDropdownHost
     void OnIgnoreExtension(object? s, EventArgs e) => OnFile(s, _vm.IgnoreExtensionAsync);
     void OnCopyFullPath(object? s, EventArgs e) => OnFile(s, f => _vm.CopyFilePathAsync(f, relative: false));
     void OnCopyRelativePath(object? s, EventArgs e) => OnFile(s, f => _vm.CopyFilePathAsync(f, relative: true));
+    void OnCopyFileDiff(object? s, EventArgs e) => OnFile(s, _vm.CopyFileDiffAsync);
     void OnShowFileInFolder(object? s, EventArgs e) => OnFile(s, _vm.ShowFileInFolderAsync);
     void OnOpenFileInEditor(object? s, EventArgs e) => OnFile(s, _vm.OpenFileInEditorAsync);
     void OnOpenFileDefault(object? s, EventArgs e) => OnFile(s, _vm.OpenFileWithDefaultAppAsync);
@@ -117,6 +118,7 @@ public partial class MainPage : ContentPage, IDropdownHost
     void OnCreateTag(object? s, EventArgs e) => OnCommit(s, _vm.CreateTagAsync);
     void OnCherryPick(object? s, EventArgs e) => OnCommit(s, _vm.CherryPickCommitAsync);
     void OnCopySha(object? s, EventArgs e) => OnCommit(s, _vm.CopyShaAsync);
+    void OnCopyCommitPatch(object? s, EventArgs e) => OnCommit(s, _vm.CopyCommitPatchAsync);
     void OnCopyTag(object? s, EventArgs e) => OnCommit(s, _vm.CopyTagAsync);
     void OnViewCommitOnHost(object? s, EventArgs e) => OnCommit(s, _vm.ViewCommitOnHostAsync);
 

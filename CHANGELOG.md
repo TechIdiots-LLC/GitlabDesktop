@@ -3,6 +3,8 @@
 ## master
 ### ✨ Features and improvements
 - _...Add new stuff here..._
+- Right-click the repository or branch in the toolbar, like GitHub Desktop: copy the repository name, path or remote URL, or the branch name, its link or its merge/pull request link, plus quick access to rename, delete, view on GitLab/GitHub and open elsewhere.
+- **Copy diffs for AI assistants and issues**: Copy diff on a changed file, Copy all changes as patch on the changes header, and Copy commit as patch in History copy plain unified diffs (new files included; commits with their message). The status bar confirms what was copied.
 
 ### 🐞 Bug fixes
 - _...Add new stuff here..._

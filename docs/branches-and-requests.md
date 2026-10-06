@@ -31,6 +31,9 @@ calls without signing in.
 
 ## Branch menu
 
+Right-click **Current branch** in the toolbar for **Rename…**, **Copy branch name**, **Copy link to branch**, **Copy
+link to merge request** (or pull request), View branch on GitLab/GitHub, Create merge/pull request and **Delete…**.
+
 | Item | What it does |
 | --- | --- |
 | **New branch…** (Ctrl+Shift+N) | Creates a branch from the current commit and switches to it. Also available as **New branch** in the branch list. Spaces and characters git doesn't allow are replaced. |

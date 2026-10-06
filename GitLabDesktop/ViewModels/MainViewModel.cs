@@ -149,6 +149,7 @@ public sealed partial class MainViewModel : ObservableObject
     public string ViewBranchOnHostText => $"View branch on {ProviderName}";
     public string CreateChangeRequestText => $"Create {RequestName}…";
     public string ViewChangeRequestText => $"View {RequestName} on {ProviderName}";
+    public string CopyChangeRequestLinkText => $"Copy link to {RequestName}";
     public string ViewCiText => $"View {Remote?.CiName ?? "pipeline"} on {ProviderName}";
     public string OpenOnHostText => $"Open the repository on {ProviderName}";
 
@@ -157,7 +158,7 @@ public sealed partial class MainViewModel : ObservableObject
         nameof(ProviderName), nameof(ViewOnHostText), nameof(CreateIssueText), nameof(ViewIssuesText),
         nameof(ViewChangeRequestsText), nameof(ViewCiListText), nameof(CompareToBranchText), nameof(CompareOnHostText),
         nameof(ViewBranchOnHostText), nameof(CreateChangeRequestText), nameof(ViewChangeRequestText), nameof(ViewCiText),
-        nameof(OpenOnHostText),
+        nameof(OpenOnHostText), nameof(CopyChangeRequestLinkText),
     ];
 
     partial void OnRemoteChanged(HostedRemote? value)

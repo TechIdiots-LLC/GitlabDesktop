@@ -154,6 +154,22 @@
               BackgroundColor="{AppThemeBinding Light={StaticResource ToolbarLight}, Dark={StaticResource ToolbarDark}}">
 
             <Grid x:Name="RepositoryButton" Style="{StaticResource ToolbarCell}" ColumnDefinitions="*,Auto">
+                <!-- Right-click, like GitHub Desktop: copy names and paths (handy for AI assistants), and open it elsewhere -->
+                <FlyoutBase.ContextFlyout>
+                    <MenuFlyout>
+                        <MenuFlyoutItem Text="Copy repository name" Command="{Binding CopyRepositoryNameCommand}" />
+                        <MenuFlyoutItem Text="Copy repository path" Command="{Binding CopyRepositoryPathCommand}" />
+                        <MenuFlyoutItem Text="Copy remote URL" Command="{Binding CopyRemoteUrlCommand}" />
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Text="{Binding ViewOnHostText}" Command="{Binding ViewOnHostCommand}" />
+                        <MenuFlyoutItem Text="Open in Terminal" Command="{Binding OpenInTerminalCommand}" />
+                        <MenuFlyoutItem Text="{OnPlatform Default='Show in Explorer', MacCatalyst='Show in Finder'}" Command="{Binding ShowInExplorerCommand}" />
+                        <MenuFlyoutItem Text="Open in editor" Command="{Binding OpenInEditorCommand}" />
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Text="Repository settings…" Command="{Binding RepositorySettingsCommand}" />
+                        <MenuFlyoutItem Text="Remove…" Command="{Binding RemoveRepositoryCommand}" />
+                    </MenuFlyout>
+                </FlyoutBase.ContextFlyout>
                 <Grid.GestureRecognizers>
                     <TapGestureRecognizer Command="{Binding ChooseRepositoryCommand}" />
                 </Grid.GestureRecognizers>
@@ -167,6 +183,19 @@
             <BoxView Grid.Column="1" Color="{StaticResource ToolbarHover}" />
 
             <Grid x:Name="BranchButton" Grid.Column="2" Style="{StaticResource ToolbarCell}" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
+                <FlyoutBase.ContextFlyout>
+                    <MenuFlyout>
+                        <MenuFlyoutItem Text="Rename…" Command="{Binding RenameBranchCommand}" />
+                        <MenuFlyoutItem Text="Copy branch name" Command="{Binding CopyBranchNameCommand}" />
+                        <MenuFlyoutItem Text="Copy link to branch" Command="{Binding CopyBranchLinkCommand}" />
+                        <MenuFlyoutItem Text="{Binding CopyChangeRequestLinkText}" Command="{Binding CopyChangeRequestLinkCommand}" />
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Text="{Binding ViewBranchOnHostText}" Command="{Binding ViewBranchOnHostCommand}" />
+                        <MenuFlyoutItem Text="{Binding CreateChangeRequestText}" Command="{Binding CreateChangeRequestCommand}" />
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Text="Delete…" Command="{Binding DeleteBranchCommand}" />
+                    </MenuFlyout>
+                </FlyoutBase.ContextFlyout>
                 <Grid.GestureRecognizers>
                     <TapGestureRecognizer Command="{Binding ChooseBranchCommand}" />
                 </Grid.GestureRecognizers>
@@ -275,6 +304,8 @@
                             <MenuFlyout>
                                 <MenuFlyoutItem Text="Discard all changes…" Command="{Binding DiscardAllChangesCommand}" />
                                 <MenuFlyoutItem Text="Stash all changes" Command="{Binding StashAllChangesCommand}" />
+                                <MenuFlyoutSeparator />
+                                <MenuFlyoutItem Text="Copy all changes as patch" Command="{Binding CopyAllChangesAsPatchCommand}" />
                             </MenuFlyout>
                         </FlyoutBase.ContextFlyout>
                         <CheckBox IsChecked="{Binding AllIncluded}" IsEnabled="{Binding HasChanges}" />
@@ -294,6 +325,7 @@
                                             <MenuFlyoutItem Text="Ignore file (add to .gitignore)" Clicked="OnIgnoreFile" />
                                             <MenuFlyoutItem Text="Ignore all files with this extension" Clicked="OnIgnoreExtension" />
                                             <MenuFlyoutSeparator />
+                                            <MenuFlyoutItem Text="Copy diff" Clicked="OnCopyFileDiff" />
                                             <MenuFlyoutItem Text="Copy file path" Clicked="OnCopyFullPath" />
                                             <MenuFlyoutItem Text="Copy relative file path" Clicked="OnCopyRelativePath" />
                                             <MenuFlyoutSeparator />
@@ -351,6 +383,7 @@
                                         <MenuFlyoutItem Text="Cherry-pick commit…" Clicked="OnCherryPick" />
                                         <MenuFlyoutSeparator />
                                         <MenuFlyoutItem Text="Copy SHA" Clicked="OnCopySha" />
+                                        <MenuFlyoutItem Text="Copy commit as patch" Clicked="OnCopyCommitPatch" />
                                         <MenuFlyoutItem Text="Copy tag" Clicked="OnCopyTag" />
                                         <MenuFlyoutItem Text="View commit in browser" Clicked="OnViewCommitOnHost" />
                                     </MenuFlyout>

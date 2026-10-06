@@ -56,6 +56,7 @@ Right-click a file for:
 | **Discard changes…** | Throws away your changes to that file, after asking. This can't be undone. |
 | **Ignore file (add to .gitignore)** | Adds the file to `.gitignore` so git stops listing it. |
 | **Ignore all files with this extension** | Adds `*.ext` to `.gitignore`. |
+| **Copy diff** | Copies this file's changes as a unified diff (patch), ready to paste into an AI assistant, an issue or a chat. |
 | **Copy file path** / **Copy relative file path** | Copies the full path, or the path within the repository. |
 | **Show in Explorer / Finder** | Opens the folder with the file selected. |
 | **Open in editor** | Opens the file with your [editor command](options.md#tools). |
@@ -64,6 +65,7 @@ Right-click a file for:
 Right-click the *N changed files* header (or use the **Branch** menu) for:
 
 - **Discard all changes…**: throws away every uncommitted change, after asking.
+- **Copy all changes as patch**: copies every uncommitted change, new files included, as one unified diff.
 - **Stash all changes** (Ctrl+Shift+S): sets every change aside and leaves the working folder clean. Bring the changes
   back later with **Branch › Restore stashed changes…**, which lists your stashes.
 

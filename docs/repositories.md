@@ -47,6 +47,11 @@ in [Options › Repositories](options.md#repositories), where **Use GitHub Deskt
 
 ## Repository menu
 
+Right-click **Current repository** in the toolbar for a shorter menu, like GitHub Desktop's: **Copy repository
+name**, **Copy repository path** and **Copy remote URL** (handy when telling an AI assistant or a colleague which
+repository you mean), plus View on GitLab/GitHub, Open in Terminal, Show in Explorer, Open in editor, Repository
+settings and Remove.
+
 | Item | What it does |
 | --- | --- |
 | **Push / Pull / Fetch** | See [Syncing](syncing.md). |

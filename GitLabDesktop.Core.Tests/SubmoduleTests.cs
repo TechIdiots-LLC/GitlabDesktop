@@ -112,25 +112,45 @@ public class SubmoduleTests
     public async Task StubRepairLeavesRealSubmodulesAlone()
     {
         using var t = await TempRepo.CreateAsync();
+        t.Write("a.txt", "a\n");
+        await t.CommitAllAsync("a");
         var modules = Path.Combine(t.Dir, ".git", "modules");
-        // A real submodule repository inside a group folder…
-        Directory.CreateDirectory(Path.Combine(modules, "vendor", "real", "objects"));
-        File.WriteAllText(Path.Combine(modules, "vendor", "real", "HEAD"), "ref: refs/heads/main\n");
-        // …next to stubs from failed checkouts: one with only a config, one with hooks too (other git versions)
+
+        // Real submodule repositories, as git makes them: hooks with sample scripts, info/exclude, refs, and read-only
+        // object files (pushed in). Folders inside them (hooks, objects/xx, refs/heads) have files and no HEAD of their
+        // own, and must not be taken for stubs. One sits in a group folder and has a nested submodule of its own.
+        var real = Path.Combine(modules, "vendor", "real");
+        var nested = Path.Combine(real, "modules", "inner");
+        foreach (var repo in new[] { real, nested })
+        {
+            Directory.CreateDirectory(repo);
+            await t.Git.RunAsync(repo, ["init", "--bare", "-q", "-b", "main"]);
+            await t.RunAsync("push", "-q", repo, "main");
+        }
+        var realFiles = Directory.EnumerateFiles(real, "*", SearchOption.AllDirectories).Count();
+        Assert.Contains(Directory.EnumerateFiles(real, "*", SearchOption.AllDirectories), f => f.Contains("hooks"));
+
+        // Stubs from failed checkouts: only a config, or hooks too (other git versions); one inside the real repository
         Directory.CreateDirectory(Path.Combine(modules, "vendor", "stub"));
         File.WriteAllText(Path.Combine(modules, "vendor", "stub", "config"), "[core]\n");
         Directory.CreateDirectory(Path.Combine(modules, "vendor", "stub2", "hooks"));
         File.WriteAllText(Path.Combine(modules, "vendor", "stub2", "config"), "[core]\n");
         File.WriteAllText(Path.Combine(modules, "vendor", "stub2", "hooks", "pre-commit.sample"), "#!/bin/sh\n");
+        Directory.CreateDirectory(Path.Combine(real, "modules", "stub3"));
+        File.WriteAllText(Path.Combine(real, "modules", "stub3", "config"), "[core]\n");
         // The stub's working folder holds only its .git pointer
         Directory.CreateDirectory(Path.Combine(t.Dir, "vendor", "stub"));
         File.WriteAllText(Path.Combine(t.Dir, "vendor", "stub", ".git"), "gitdir: ../../.git/modules/vendor/stub\n");
 
         Assert.True(await t.Repo.RemoveBrokenSubmoduleStubsAsync());
 
-        Assert.True(File.Exists(Path.Combine(modules, "vendor", "real", "HEAD")));
+        // The real repositories are untouched, file for file, and still valid
+        Assert.Equal(realFiles, Directory.EnumerateFiles(real, "*", SearchOption.AllDirectories).Count());
+        foreach (var repo in new[] { real, nested })
+            Assert.True((await t.Git.RunAsync(repo, ["fsck", "--no-progress"], throwOnError: false)).Success, repo);
         Assert.False(Directory.Exists(Path.Combine(modules, "vendor", "stub")));
         Assert.False(Directory.Exists(Path.Combine(modules, "vendor", "stub2")));
+        Assert.False(Directory.Exists(Path.Combine(real, "modules", "stub3")));
         Assert.False(Directory.Exists(Path.Combine(t.Dir, "vendor", "stub")));
         Assert.False(await t.Repo.RemoveBrokenSubmoduleStubsAsync());   // nothing left to do
     }

@@ -6,6 +6,7 @@
 
 ### 🐞 Bug fixes
 - _...Add new stuff here..._
+- 0.4.6's cleanup of broken submodule leftovers could mistake folders inside real submodule repositories (such as `objects/pack` or `hooks`) for leftovers and try to delete them, failing with "Access to the path 'pack-….idx' is denied". It now only ever removes a submodule folder that has no repository in it, and never looks inside a real one.
 
 ## 0.4.6
 ### ✨ Features and improvements

@@ -83,7 +83,12 @@ public sealed partial class GitRepository(GitRunner git, string path)
 
     public async Task<RepositoryStatus> GetStatusAsync()
     {
-        var r = await Run("status", "--porcelain=v2", "--branch", "-z", "--untracked-files=all");
+        string[] args = ["status", "--porcelain=v2", "--branch", "-z", "--untracked-files=all"];
+        var r = await Run(args, throwOnError: false);
+        // Stubs left by a failed submodule checkout break even git status; clear them and try again
+        if (!r.Success && IsBrokenSubmoduleError(r.StdErr) && await RemoveBrokenSubmoduleStubsAsync())
+            r = await Run(args, throwOnError: false);
+        if (!r.Success) throw new GitException(r.StdErr.Trim(), r);
         return StatusParser.Parse(r.StdOut);
     }
 

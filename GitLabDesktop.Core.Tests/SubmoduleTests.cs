@@ -87,12 +87,21 @@ public class SubmoduleTests
             Directory.Delete(modules, true);
 
             // git's own recursive switch can't check out a submodule the branch adds, and leaves stubs behind…
+            // (HEAD stays on main, but the index and files are already the feature branch's, submodule entry included)
             var plain = await app.Git.RunAsync(app.Dir, ["switch", "feature"], throwOnError: false);
             Assert.False(plain.Success, plain.StdErr);
-            await app.RunAsync("reset", "--hard");
-            await app.RunAsync("clean", "-fdq");   // as a user would clean up; leaves the stubs
+            // In a large repository git gets further before failing: the index and files are already the branch's
+            File.Delete(Path.Combine(app.Dir, ".gitmodules"));
+            await app.RunAsync("read-tree", "feature");
+            await app.RunAsync("checkout-index", "-a", "-f");
+            var broken = await app.Git.RunAsync(app.Dir, ["status"], throwOnError: false);
+            Assert.False(broken.Success, "the leftover stubs should break git status, as in the reported repository");
 
-            // …the app's switch works anyway: it clears the stubs and clones the submodule
+            // …the app reads the status anyway (clearing the stubs)…
+            Assert.Equal("main", (await app.Repo.GetStatusAsync()).Branch);
+            Assert.False(File.Exists(Path.Combine(app.Dir, ".git", "modules", "vendor", "lib", "config")));
+
+            // …and its switch, bringing the half-switched changes along (they are the feature branch's own), clones it
             var feature = (await app.Repo.GetBranchesAsync()).Single(b => b.Name == "feature");
             await app.Repo.CheckoutAsync(feature);
             Assert.Equal("feature", (await app.Repo.GetStatusAsync()).Branch);

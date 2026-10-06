@@ -10,6 +10,7 @@ public sealed partial class GitRepository
     /// </summary>
     async Task<GitResult> RunMovingHeadAsync(IEnumerable<string> args, CancellationToken ct = default)
     {
+        await RemoveBrokenSubmoduleStubsAsync();
         var result = await Run(["-c", "submodule.recurse=false", .. args], ct: ct);
         await SyncSubmodulesAsync(ct);
         return result;
@@ -32,36 +33,43 @@ public sealed partial class GitRepository
         }
     }
 
+    /// <summary>Git's error when a submodule's .git file points at one of the stubs below.</summary>
+    static bool IsBrokenSubmoduleError(string message)
+        => message.Contains("not a git repository", StringComparison.Ordinal) &&
+           message.Contains("modules", StringComparison.Ordinal);
+
     /// <summary>
-    /// A recursive checkout that failed on a new submodule leaves stubs that make every later
-    /// <c>git submodule update</c> fail too ("BUG: submodule considered for cloning…"): .git/modules/&lt;name&gt; holding
-    /// only a config file, and a working folder holding only a .git file pointing at it. Neither has any data (no HEAD,
-    /// no objects, no files), so they are removed and the submodule is cloned afresh. Real submodules are never touched.
+    /// A recursive checkout that failed on a new submodule leaves stubs that break git in that repository ("fatal: not a
+    /// git repository: vendor/x/../../.git/modules/vendor/x", even for <c>git status</c>): .git/modules/&lt;name&gt;
+    /// holding only a config file, and a working folder &lt;name&gt; holding only a .git file pointing at it. Neither
+    /// has any data, so both are removed; the submodule is cloned afresh when a branch needs it. A real submodule's
+    /// folder in .git/modules always has HEAD and subfolders (objects, refs), so it is never touched.
     /// </summary>
-    async Task RemoveBrokenSubmoduleStubsAsync()
+    /// <returns>Whether anything was removed.</returns>
+    public async Task<bool> RemoveBrokenSubmoduleStubsAsync()
     {
         var gitDir = (await Run("rev-parse", "--absolute-git-dir")).StdOut.Trim();
-        var entries = await Run(["config", "-f", ".gitmodules", "--get-regexp", @"^submodule\..*\.path$"], throwOnError: false);
-        foreach (var line in entries.StdOut.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        var modules = System.IO.Path.Combine(gitDir, "modules");
+        if (!Directory.Exists(modules)) return false;
+
+        var removed = false;
+        // Deepest first, so a group folder (".git/modules/vendor") is looked at after what's inside it
+        foreach (var dir in Directory.EnumerateDirectories(modules, "*", SearchOption.AllDirectories)
+                     .OrderByDescending(d => d.Length).ToList())
         {
-            // "submodule.<name>.path <path>"
-            var space = line.IndexOf(' ');
-            if (space < 0) continue;
-            var name = line["submodule.".Length..(space - ".path".Length)];
-            var path = line[(space + 1)..];
+            if (!Directory.Exists(dir) || Directory.EnumerateDirectories(dir).Any()) continue;   // a group, or a real repository
+            if (File.Exists(System.IO.Path.Combine(dir, "HEAD")) || !Directory.EnumerateFiles(dir).Any()) continue;
 
-            var moduleDir = System.IO.Path.Combine(gitDir, "modules", name);
-            bool IsStub(string dir) => Directory.Exists(dir) &&
-                                       !File.Exists(System.IO.Path.Combine(dir, "HEAD")) &&
-                                       !Directory.Exists(System.IO.Path.Combine(dir, "objects"));
-            if (!IsStub(moduleDir)) continue;
-
-            var workDir = System.IO.Path.Combine(Path, path);
-            if (Directory.Exists(workDir) &&
-                Directory.EnumerateFileSystemEntries(workDir).Select(System.IO.Path.GetFileName).SequenceEqual([".git"]) &&
-                File.Exists(System.IO.Path.Combine(workDir, ".git")))
+            var name = System.IO.Path.GetRelativePath(modules, dir).Replace('\\', '/');
+            var workDir = System.IO.Path.Combine(Path, name);
+            var gitFile = System.IO.Path.Combine(workDir, ".git");
+            if (File.Exists(gitFile) &&
+                Directory.EnumerateFileSystemEntries(workDir).Count() == 1 &&
+                File.ReadAllText(gitFile).Replace('\\', '/').TrimEnd().EndsWith("modules/" + name, StringComparison.Ordinal))
                 Directory.Delete(workDir, recursive: true);
-            Directory.Delete(moduleDir, recursive: true);
+            Directory.Delete(dir, recursive: true);
+            removed = true;
         }
+        return removed;
     }
 }

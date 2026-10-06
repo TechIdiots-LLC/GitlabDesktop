@@ -7,6 +7,7 @@
 
 ### 🐞 Bug fixes
 - _...Add new stuff here..._
+- Switching to a branch that adds a submodule failed with "not a git repository: …/.git/modules/…" when Include submodules (git's `submodule.recurse`) is on, leaving the working folder half switched. Switching, pulling, merging and rebasing now move the branch first and then update submodules (`git submodule update --init --recursive`), cloning new ones and clearing the empty leftovers such a failure leaves behind.
 
 ## 0.4.3
 ### ✨ Features and improvements

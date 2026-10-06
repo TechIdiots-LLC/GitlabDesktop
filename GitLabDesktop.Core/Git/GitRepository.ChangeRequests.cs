@@ -34,13 +34,13 @@ public sealed partial class GitRepository
         if (await BranchExistsAsync(local))
         {
             await Run(["fetch", remote, requestRef], ct: ct);
-            await Run("switch", local);
-            await Run("merge", "--ff-only", "FETCH_HEAD");
+            await RunMovingHeadAsync("switch", local);
+            await RunMovingHeadAsync("merge", "--ff-only", "FETCH_HEAD");
         }
         else
         {
             await Run(["fetch", remote, $"{requestRef}:refs/heads/{local}"], ct: ct);
-            await Run("switch", local);
+            await RunMovingHeadAsync("switch", local);
         }
         return local;
     }
@@ -50,9 +50,9 @@ public sealed partial class GitRepository
     {
         await Run(["fetch", remote, $"+refs/heads/{branch}:refs/remotes/{remote}/{branch}"], ct: ct);
         if (await BranchExistsAsync(local))
-            await Run("switch", local);   // already there: leave its own commits alone, the toolbar offers Pull if behind
+            await RunMovingHeadAsync("switch", local);   // already there: leave its own commits alone, the toolbar offers Pull if behind
         else
-            await Run("switch", "-c", local, "--track", $"{remote}/{branch}");
+            await RunMovingHeadAsync("switch", "-c", local, "--track", $"{remote}/{branch}");
         return local;
     }
 

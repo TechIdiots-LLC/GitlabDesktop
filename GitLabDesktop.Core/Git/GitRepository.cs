@@ -364,14 +364,14 @@ public sealed partial class GitRepository(GitRunner git, string path)
     }
 
     public Task CreateBranchAsync(string name, string? startPoint = null)
-        => startPoint is null ? Run("switch", "-c", name) : Run("switch", "-c", name, startPoint);
+        => startPoint is null ? RunMovingHeadAsync("switch", "-c", name) : RunMovingHeadAsync("switch", "-c", name, startPoint);
 
     public Task CheckoutAsync(BranchInfo branch)
         => branch.IsRemote
-            ? Run("switch", "-c", branch.NameWithoutRemote, "--track", branch.Name)
-            : Run("switch", branch.Name);
+            ? RunMovingHeadAsync("switch", "-c", branch.NameWithoutRemote, "--track", branch.Name)
+            : RunMovingHeadAsync("switch", branch.Name);
 
-    public Task CheckoutCommitAsync(string sha) => Run("switch", "--detach", sha);
+    public Task CheckoutCommitAsync(string sha) => RunMovingHeadAsync("switch", "--detach", sha);
 
     public Task RenameBranchAsync(string oldName, string newName) => Run("branch", "-m", oldName, newName);
 
@@ -379,11 +379,11 @@ public sealed partial class GitRepository(GitRunner git, string path)
 
     public Task DeleteRemoteBranchAsync(string remote, string name) => Run("push", remote, "--delete", name);
 
-    public Task MergeAsync(string branch) => Run("merge", "--no-edit", branch);
+    public Task MergeAsync(string branch) => RunMovingHeadAsync("merge", "--no-edit", branch);
 
-    public Task SquashMergeAsync(string branch) => Run("merge", "--squash", branch);
+    public Task SquashMergeAsync(string branch) => RunMovingHeadAsync("merge", "--squash", branch);
 
-    public Task RebaseAsync(string onto) => Run("rebase", onto);
+    public Task RebaseAsync(string onto) => RunMovingHeadAsync("rebase", onto);
 
     public Task AbortAsync(RepositoryOperation op) => op switch
     {
@@ -470,7 +470,7 @@ public sealed partial class GitRepository(GitRunner git, string path)
         var cfg = await Run(["config", "--get", "pull.rebase"], throwOnError: false);
         var args = new List<string> { "pull" };
         if (!cfg.Success) args.Add("--no-rebase");
-        await Run(args, ct: ct);
+        await RunMovingHeadAsync(args, ct);
     }
 
     /// <summary>

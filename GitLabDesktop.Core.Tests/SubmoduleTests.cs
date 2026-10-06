@@ -65,6 +65,41 @@ public class SubmoduleTests
         });
 
     [Fact]
+    public Task SwitchingToABranchThatAddsASubmoduleWorksWithSubmoduleRecurse()
+        // Local submodule URLs need protocol.file.allow; submodule.recurse is what made git's own switch fail
+        => WithTemporaryConfigAsync("[protocol \"file\"]\n\tallow = always\n[submodule]\n\trecurse = true\n", async _ =>
+        {
+            using var lib = await TempRepo.CreateAsync();
+            lib.Write("lib.txt", "library\n");
+            await lib.CommitAllAsync("library");
+
+            using var app = await TempRepo.CreateAsync();
+            app.Write("app.txt", "app\n");
+            await app.CommitAllAsync("app");
+            await app.RunAsync("switch", "-c", "feature");
+            await app.RunAsync("submodule", "add", lib.Dir, "vendor/lib");
+            await app.CommitAllAsync("add a submodule");
+            await app.RunAsync("switch", "--no-recurse-submodules", "main");
+            // Leave the branch's submodule half-registered, as a fresh clone of main would have it
+            Directory.Delete(Path.Combine(app.Dir, "vendor"), true);
+            var modules = Path.Combine(app.Dir, ".git", "modules");
+            foreach (var f in Directory.EnumerateFiles(modules, "*", SearchOption.AllDirectories)) File.SetAttributes(f, FileAttributes.Normal);
+            Directory.Delete(modules, true);
+
+            // git's own recursive switch can't check out a submodule the branch adds, and leaves stubs behind…
+            var plain = await app.Git.RunAsync(app.Dir, ["switch", "feature"], throwOnError: false);
+            Assert.False(plain.Success, plain.StdErr);
+            await app.RunAsync("reset", "--hard");
+            await app.RunAsync("clean", "-fdq");   // as a user would clean up; leaves the stubs
+
+            // …the app's switch works anyway: it clears the stubs and clones the submodule
+            var feature = (await app.Repo.GetBranchesAsync()).Single(b => b.Name == "feature");
+            await app.Repo.CheckoutAsync(feature);
+            Assert.Equal("feature", (await app.Repo.GetStatusAsync()).Branch);
+            Assert.Equal("library\n", File.ReadAllText(Path.Combine(app.Dir, "vendor", "lib", "lib.txt")).Replace("\r\n", "\n"));
+        });
+
+    [Fact]
     public async Task CloneWithoutSubmodulesLeavesThemOut()
     {
         using var lib = await TempRepo.CreateAsync();

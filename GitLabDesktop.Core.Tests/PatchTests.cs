@@ -51,4 +51,23 @@ public class PatchTests
         Assert.Contains("Add a second line", patch);
         Assert.Contains("+two", patch);
     }
+
+    [Fact]
+    public async Task CommitFilePatchHasOnlyThatFile()
+    {
+        using var t = await TempRepo.CreateAsync();
+        t.Write("a.txt", "one\n");
+        t.Write("b.txt", "bee\n");
+        await t.CommitAllAsync("first");
+        t.Write("a.txt", "one\ntwo\n");
+        t.Write("b.txt", "bee\nbuzz\n");
+        await t.CommitAllAsync("both");
+
+        var head = (await t.Repo.GetLogAsync(0, 1))[0];
+        var file = (await t.Repo.GetCommitFilesAsync(head)).Single(f => f.Path == "a.txt");
+        var patch = await t.Repo.GetCommitFilePatchAsync(head.Sha, file);
+        Assert.StartsWith("diff --git a/a.txt b/a.txt", patch);
+        Assert.Contains("+two", patch);
+        Assert.DoesNotContain("buzz", patch);
+    }
 }

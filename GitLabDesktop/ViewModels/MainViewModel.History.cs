@@ -226,4 +226,40 @@ public sealed partial class MainViewModel
     {
         if (await RequireRemoteAsync()) await OpenLinkAsync(Remote!.CommitLink(commit.Sha));
     }
+
+    // ── A file in the selected commit (right-click, like GitHub Desktop) ─────
+
+    /// <summary>Runs the action on the file in the working folder, or says it isn't there any more.</summary>
+    async Task WithWorkingFileAsync(FileChange file, Action<string> action)
+    {
+        if (Repo is null) return;
+        var path = Path.GetFullPath(Path.Combine(Repo.Path, file.Path));
+        if (!File.Exists(path))
+        {
+            await _dialogs.AlertAsync(file.FileName, $"{file.Path} isn't in your working folder (it has been deleted or renamed since).");
+            return;
+        }
+        await TryPlatform(() => action(path));
+    }
+
+    public Task ShowCommitFileInFolderAsync(FileChange file) => WithWorkingFileAsync(file, _platform.ShowInFileManager);
+    public Task OpenCommitFileInEditorAsync(FileChange file) => WithWorkingFileAsync(file, _platform.OpenInEditor);
+    public Task OpenCommitFileWithDefaultAppAsync(FileChange file) => WithWorkingFileAsync(file, _platform.OpenWithDefaultApp);
+
+    public Task CopyCommitFilePathAsync(FileChange file, bool relative)
+        => Repo is null ? Task.CompletedTask
+            : CopyAsync(relative ? file.Path : Path.GetFullPath(Path.Combine(Repo.Path, file.Path)), relative ? "the relative path" : "the path");
+
+    /// <summary>The file as it was in the commit; for a file the commit deleted, the commit itself.</summary>
+    public async Task ViewCommitFileOnHostAsync(FileChange file)
+    {
+        if (SelectedCommit is not { } commit || !await RequireRemoteAsync()) return;
+        await OpenLinkAsync(file.Kind == FileChangeKind.Deleted ? Remote!.CommitLink(commit.Sha) : Remote!.FileLink(commit.Sha, file.Path));
+    }
+
+    public async Task CopyCommitFileDiffAsync(FileChange file)
+    {
+        if (Repo is null || SelectedCommit is not { } commit) return;
+        await CopyAsync(await Repo.GetCommitFilePatchAsync(commit.Sha, file), $"the diff of {file.FileName} in {commit.ShortSha}");
+    }
 }

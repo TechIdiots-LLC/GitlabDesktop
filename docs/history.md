@@ -30,5 +30,12 @@ Right-click a commit for:
 | **Copy commit as patch** | Copies the commit as `git show` prints it: author, date, message and diff. Handy for asking an AI assistant about a change. |
 | **View commit in browser** | Opens the commit on GitLab, GitHub or the server. |
 
+## Files in a commit
+
+Right-click a file in a commit's file list for **Show in Explorer**, **Open in editor** and **Open with default program**
+(these use the file in your working folder, if it's still there), **Copy diff** (that file's change in this commit),
+**Copy file path**, **Copy relative file path**, and **View on GitLab/GitHub**, which opens the file as it was in this
+commit.
+
 If a revert or cherry-pick stops with conflicts, see
 [Conflicts](branches-and-requests.md#conflicts).

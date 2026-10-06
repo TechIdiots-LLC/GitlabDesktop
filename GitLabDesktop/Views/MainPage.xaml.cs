@@ -122,6 +122,20 @@ public partial class MainPage : ContentPage, IDropdownHost
     void OnCopyTag(object? s, EventArgs e) => OnCommit(s, _vm.CopyTagAsync);
     void OnViewCommitOnHost(object? s, EventArgs e) => OnCommit(s, _vm.ViewCommitOnHostAsync);
 
+    // ── A file in the selected commit ──────────────────────────────────────────
+    void OnCommitFile(object? sender, Func<FileChange, Task> action)
+    {
+        if (Item<FileChange>(sender) is { } f) _ = action(f);
+    }
+
+    void OnShowCommitFileInFolder(object? s, EventArgs e) => OnCommitFile(s, _vm.ShowCommitFileInFolderAsync);
+    void OnOpenCommitFileInEditor(object? s, EventArgs e) => OnCommitFile(s, _vm.OpenCommitFileInEditorAsync);
+    void OnOpenCommitFileDefault(object? s, EventArgs e) => OnCommitFile(s, _vm.OpenCommitFileWithDefaultAppAsync);
+    void OnCopyCommitFileDiff(object? s, EventArgs e) => OnCommitFile(s, _vm.CopyCommitFileDiffAsync);
+    void OnCopyCommitFileFullPath(object? s, EventArgs e) => OnCommitFile(s, f => _vm.CopyCommitFilePathAsync(f, relative: false));
+    void OnCopyCommitFileRelativePath(object? s, EventArgs e) => OnCommitFile(s, f => _vm.CopyCommitFilePathAsync(f, relative: true));
+    void OnViewCommitFileOnHost(object? s, EventArgs e) => OnCommitFile(s, _vm.ViewCommitFileOnHostAsync);
+
     async void OnAboutClicked(object? sender, EventArgs e)
     {
         var version = Assembly.GetExecutingAssembly().GetCustomAttributes<AssemblyMetadataAttribute>()

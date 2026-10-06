@@ -60,6 +60,7 @@ public class HostedRemoteTests
         Assert.Equal("https://gitlab.example.com/g/p/-/tree/fix/a%20b", r.BranchLink("fix/a b"));
         Assert.Equal("https://gitlab.example.com/g/p/-/compare/main...fix/x", r.CompareLink("main", "fix/x"));
         Assert.Equal("https://gitlab.example.com/g/p/-/merge_requests", r.ChangeRequestsLink);
+        Assert.Equal("https://gitlab.example.com/g/p/-/blob/abc/docs/read%20me.md", r.FileLink("abc", "docs/read me.md"));
         Assert.Equal("https://gitlab.example.com/g/p/-/merge_requests/new?merge_request%5Bsource_branch%5D=fix%2Fx&merge_request%5Btarget_branch%5D=main",
             r.NewChangeRequestLink("fix/x", "main"));
     }
@@ -72,6 +73,7 @@ public class HostedRemoteTests
         Assert.Equal("pull request", r.ChangeRequestName);
         Assert.Equal("https://github.com/owner/repo/tree/fix/x", r.BranchLink("fix/x"));
         Assert.Equal("https://github.com/owner/repo/commit/abc", r.CommitLink("abc"));
+        Assert.Equal("https://github.com/owner/repo/blob/abc/docs/maintainers.md", r.FileLink("abc", "docs/maintainers.md"));
         Assert.Equal("https://github.com/owner/repo/issues/new", r.NewIssueLink);
         Assert.Equal("https://github.com/owner/repo/pulls", r.ChangeRequestsLink);
         Assert.Equal("https://github.com/owner/repo/compare/main...fix/x?expand=1", r.NewChangeRequestLink("fix/x", "main"));

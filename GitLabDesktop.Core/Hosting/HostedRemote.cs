@@ -101,6 +101,8 @@ public sealed record HostedRemote(HostingKind Kind, string Host, string ProjectP
     public string ProjectLink => WebUrl;
     public string? BranchLink(string branch) => Known ? $"{Pages}/tree/{Ref(branch)}" : null;
     public string? CommitLink(string sha) => Known ? $"{Pages}/commit/{sha}" : null;
+    /// <summary>A file as it was at a commit.</summary>
+    public string? FileLink(string sha, string path) => Known ? $"{Pages}/blob/{sha}/{Ref(path)}" : null;
     public string? CompareLink(string from, string to) => Known ? $"{Pages}/compare/{Ref(from)}...{Ref(to)}" : null;
     public string? NewIssueLink => Known ? $"{Pages}/issues/new" : null;
     public string? IssuesLink => Known ? $"{Pages}/issues" : null;

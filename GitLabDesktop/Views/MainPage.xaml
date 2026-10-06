@@ -491,7 +491,21 @@
                                     IsVisible="{Binding ShowLists}">
                         <CollectionView.ItemTemplate>
                             <DataTemplate x:DataType="git:FileChange">
-                                <Grid ColumnDefinitions="*,Auto" Padding="10,6" ColumnSpacing="6">
+                                <Grid ColumnDefinitions="*,Auto" Padding="10,6" ColumnSpacing="6" BackgroundColor="Transparent">
+                                    <FlyoutBase.ContextFlyout>
+                                        <MenuFlyout>
+                                            <MenuFlyoutItem Text="{OnPlatform Default='Show in Explorer', MacCatalyst='Show in Finder'}" Clicked="OnShowCommitFileInFolder" />
+                                            <MenuFlyoutItem Text="Open in editor" Clicked="OnOpenCommitFileInEditor" />
+                                            <MenuFlyoutItem Text="Open with default program" Clicked="OnOpenCommitFileDefault" />
+                                            <MenuFlyoutSeparator />
+                                            <MenuFlyoutItem Text="Copy diff" Clicked="OnCopyCommitFileDiff" />
+                                            <MenuFlyoutItem Text="Copy file path" Clicked="OnCopyCommitFileFullPath" />
+                                            <MenuFlyoutItem Text="Copy relative file path" Clicked="OnCopyCommitFileRelativePath" />
+                                            <MenuFlyoutSeparator />
+                                            <MenuFlyoutItem Text="{Binding Source={x:Reference Page}, Path=BindingContext.ViewOnHostText, x:DataType=ContentPage}"
+                                                            Clicked="OnViewCommitFileOnHost" />
+                                        </MenuFlyout>
+                                    </FlyoutBase.ContextFlyout>
                                     <controls:PathLabel VerticalOptions="Center" Directory="{Binding Directory}" FileName="{Binding FileName}" />
                                     <Border Grid.Column="1" Style="{StaticResource Badge}" WidthRequest="18" HeightRequest="18" Padding="0"
                                             Stroke="{Binding Kind, Converter={StaticResource FileChangeKindColor}}" StrokeThickness="1.5">

@@ -34,6 +34,14 @@ public sealed partial class GitRepository
         return string.Concat(parts.Select(p => p.EndsWith('\n') ? p : p + "\n"));
     }
 
+    /// <summary>One file's change in a commit (against its first parent), as a unified diff.</summary>
+    public async Task<string> GetCommitFilePatchAsync(string sha, FileChange file)
+    {
+        List<string> args = ["show", .. PlainDiff, "--first-parent", "--format=", sha, "--", file.Path];
+        if (file.OldPath is { } old) args.Add(old);   // both sides of a rename
+        return (await Run(args)).StdOut;
+    }
+
     /// <summary>A commit as git show prints it: author, date, message and its diff (against its first parent).</summary>
     public async Task<string> GetCommitPatchAsync(string sha)
         => (await Run(["show", .. PlainDiff, "--first-parent", "--format=medium", sha])).StdOut;

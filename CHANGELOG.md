@@ -6,6 +6,11 @@
 
 ### 🐞 Bug fixes
 - _...Add new stuff here..._
+
+## 0.4.6
+### ✨ Features and improvements
+
+### 🐞 Bug fixes
 - A repository where a submodule checkout had failed could stay broken, with every refresh failing with "fatal: not a git repository: …/.git/modules/…". The app now finds and removes the empty leftovers such a failure leaves (any submodule, not just ones the current branch lists) when reading the status and before switching, pulling or merging.
 
 ## 0.4.5

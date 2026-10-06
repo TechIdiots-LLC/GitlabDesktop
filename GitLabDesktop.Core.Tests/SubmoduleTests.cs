@@ -109,6 +109,33 @@ public class SubmoduleTests
         });
 
     [Fact]
+    public async Task StubRepairLeavesRealSubmodulesAlone()
+    {
+        using var t = await TempRepo.CreateAsync();
+        var modules = Path.Combine(t.Dir, ".git", "modules");
+        // A real submodule repository inside a group folder…
+        Directory.CreateDirectory(Path.Combine(modules, "vendor", "real", "objects"));
+        File.WriteAllText(Path.Combine(modules, "vendor", "real", "HEAD"), "ref: refs/heads/main\n");
+        // …next to stubs from failed checkouts: one with only a config, one with hooks too (other git versions)
+        Directory.CreateDirectory(Path.Combine(modules, "vendor", "stub"));
+        File.WriteAllText(Path.Combine(modules, "vendor", "stub", "config"), "[core]\n");
+        Directory.CreateDirectory(Path.Combine(modules, "vendor", "stub2", "hooks"));
+        File.WriteAllText(Path.Combine(modules, "vendor", "stub2", "config"), "[core]\n");
+        File.WriteAllText(Path.Combine(modules, "vendor", "stub2", "hooks", "pre-commit.sample"), "#!/bin/sh\n");
+        // The stub's working folder holds only its .git pointer
+        Directory.CreateDirectory(Path.Combine(t.Dir, "vendor", "stub"));
+        File.WriteAllText(Path.Combine(t.Dir, "vendor", "stub", ".git"), "gitdir: ../../.git/modules/vendor/stub\n");
+
+        Assert.True(await t.Repo.RemoveBrokenSubmoduleStubsAsync());
+
+        Assert.True(File.Exists(Path.Combine(modules, "vendor", "real", "HEAD")));
+        Assert.False(Directory.Exists(Path.Combine(modules, "vendor", "stub")));
+        Assert.False(Directory.Exists(Path.Combine(modules, "vendor", "stub2")));
+        Assert.False(Directory.Exists(Path.Combine(t.Dir, "vendor", "stub")));
+        Assert.False(await t.Repo.RemoveBrokenSubmoduleStubsAsync());   // nothing left to do
+    }
+
+    [Fact]
     public async Task CloneWithoutSubmodulesLeavesThemOut()
     {
         using var lib = await TempRepo.CreateAsync();

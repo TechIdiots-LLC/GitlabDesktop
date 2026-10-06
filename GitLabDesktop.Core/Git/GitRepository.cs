@@ -85,8 +85,10 @@ public sealed partial class GitRepository(GitRunner git, string path)
     {
         string[] args = ["status", "--porcelain=v2", "--branch", "-z", "--untracked-files=all"];
         var r = await Run(args, throwOnError: false);
-        // Stubs left by a failed submodule checkout break even git status; clear them and try again
-        if (!r.Success && IsBrokenSubmoduleError(r.StdErr) && await RemoveBrokenSubmoduleStubsAsync())
+        // Stubs left by a failed submodule checkout break even git status, with wording that varies by git version
+        // ("not a git repository: …/.git/modules/…", "gitfile does not point to a valid repository"). The repair only
+        // ever removes such empty stubs, so try it on any failure and retry if it found some.
+        if (!r.Success && await RemoveBrokenSubmoduleStubsAsync())
             r = await Run(args, throwOnError: false);
         if (!r.Success) throw new GitException(r.StdErr.Trim(), r);
         return StatusParser.Parse(r.StdOut);

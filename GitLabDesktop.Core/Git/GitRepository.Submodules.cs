@@ -33,11 +33,6 @@ public sealed partial class GitRepository
         }
     }
 
-    /// <summary>Git's error when a submodule's .git file points at one of the stubs below.</summary>
-    static bool IsBrokenSubmoduleError(string message)
-        => message.Contains("not a git repository", StringComparison.Ordinal) &&
-           message.Contains("modules", StringComparison.Ordinal);
-
     /// <summary>
     /// A recursive checkout that failed on a new submodule leaves stubs that break git in that repository ("fatal: not a
     /// git repository: vendor/x/../../.git/modules/vendor/x", even for <c>git status</c>): .git/modules/&lt;name&gt;
@@ -57,8 +52,14 @@ public sealed partial class GitRepository
         foreach (var dir in Directory.EnumerateDirectories(modules, "*", SearchOption.AllDirectories)
                      .OrderByDescending(d => d.Length).ToList())
         {
-            if (!Directory.Exists(dir) || Directory.EnumerateDirectories(dir).Any()) continue;   // a group, or a real repository
-            if (File.Exists(System.IO.Path.Combine(dir, "HEAD")) || !Directory.EnumerateFiles(dir).Any()) continue;
+            // A stub has some files (a config, maybe hooks) but no repository: no HEAD or objects, and no submodule
+            // repository inside it either (which keeps group folders like ".git/modules/vendor" safe).
+            if (!Directory.Exists(dir) ||
+                File.Exists(System.IO.Path.Combine(dir, "HEAD")) ||
+                Directory.Exists(System.IO.Path.Combine(dir, "objects")) ||
+                Directory.EnumerateFiles(dir, "HEAD", SearchOption.AllDirectories).Any() ||
+                !Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories).Any())
+                continue;
 
             var name = System.IO.Path.GetRelativePath(modules, dir).Replace('\\', '/');
             var workDir = System.IO.Path.Combine(Path, name);

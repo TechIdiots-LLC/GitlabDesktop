@@ -16,8 +16,12 @@ public sealed partial class SettingsViewModel : ModalViewModel<bool>
     readonly GitRunner _git;
     bool? _savedRecurseSubmodules, _savedLongPaths;
 
-    public SettingsViewModel(AppSettings settings, HostingRegistry hosting, GitRunner git)
+    readonly LinkHandlerRegistration _links;
+
+    public SettingsViewModel(AppSettings settings, HostingRegistry hosting, GitRunner git, LinkHandlerRegistration links)
     {
+        _links = links;
+        UpdateLinkHandlerStatus();
         _settings = settings;
         _hosting = hosting;
         _git = git;
@@ -174,6 +178,54 @@ public sealed partial class SettingsViewModel : ModalViewModel<bool>
 
     [RelayCommand]
     void UseDefaultRepositoriesDirectory() => RepositoriesDirectory = DefaultRepositoriesDirectory;
+
+    // ── GitHub's "Open with GitHub Desktop" links (Windows) ─────────────────
+
+    public bool ShowLinkHandler => LinkHandlerRegistration.IsSupported;
+
+    [ObservableProperty] private string _linkHandlerStatus = "";
+    [ObservableProperty] private bool _isLinkHandlerRegistered;
+    [ObservableProperty] private bool _isLinkHandlerDefault;
+
+    /// <summary>Who opens the links now; called when Options opens and after each change (and when it comes back).</summary>
+    public void UpdateLinkHandlerStatus()
+    {
+        if (!ShowLinkHandler) return;
+        var (handler, other) = _links.CurrentHandler();
+        IsLinkHandlerRegistered = _links.IsRegistered();
+        IsLinkHandlerDefault = handler == LinkHandlerRegistration.Handler.ThisApp;
+        LinkHandlerStatus = handler switch
+        {
+            LinkHandlerRegistration.Handler.ThisApp => "These links open in GitLab Desktop.",
+            LinkHandlerRegistration.Handler.OtherApp when IsLinkHandlerRegistered =>
+                $"These links open in {other}. To use GitLab Desktop, choose it for X-GITHUB-CLIENT in Windows Settings.",
+            LinkHandlerRegistration.Handler.OtherApp => $"These links open in {other}.",
+            _ => "No app opens these links yet.",
+        };
+    }
+
+    [RelayCommand]
+    void MakeLinkHandlerDefault()
+    {
+        try
+        {
+            // Windows only lets the user change another app's default: register, then send them to Settings to pick
+            if (!_links.Register()) _links.OpenDefaultAppSettings();
+        }
+        catch (Exception ex)
+        {
+            Error = $"Could not register GitLab Desktop for these links: {ex.Message}";
+        }
+        UpdateLinkHandlerStatus();
+    }
+
+    [RelayCommand]
+    void StopHandlingLinks()
+    {
+        try { _links.Unregister(); }
+        catch (Exception ex) { Error = $"Could not remove GitLab Desktop's registration: {ex.Message}"; }
+        UpdateLinkHandlerStatus();
+    }
 
     [RelayCommand]
     async Task Save()

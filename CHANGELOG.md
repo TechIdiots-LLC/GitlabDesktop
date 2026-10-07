@@ -3,6 +3,8 @@
 ## master
 ### ✨ Features and improvements
 - _...Add new stuff here..._
+- **Open GitHub's "Open with GitHub Desktop" links** (Windows): Options › Links from GitHub can make GitLab Desktop the app for them, through Windows Settings so it never takes them over without your say. A link opens its repository if you have it (switching to its branch) or the clone dialog with the URL filled in.
+- Only one copy of the app runs: launching it again, from a link or with `GitLabDesktop.exe <folder>`, brings the open window forward and opens it there.
 
 ### 🐞 Bug fixes
 - _...Add new stuff here..._

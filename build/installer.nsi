@@ -221,6 +221,24 @@ Section "Uninstall"
     Delete "$SMPROGRAMS\${APP_NAME}.lnk"
     Delete "$DESKTOP\${APP_NAME}.lnk"
     DeleteRegKey HKLM "${UNINST_KEY}"
+    ; The GitHub-link registration made from Options (Services/LinkHandlerRegistration.cs): only what the app wrote,
+    ; so another app's handler for these links (e.g. GitHub Desktop's) is left alone
+    DeleteRegKey HKCU "Software\Classes\GitLabDesktop.Link"
+    DeleteRegKey HKCU "Software\TechIdiots\GitLab Desktop"
+    DeleteRegKey /ifempty HKCU "Software\TechIdiots"
+    DeleteRegValue HKCU "Software\RegisteredApplications" "GitLab Desktop"
+    ReadRegStr $R2 HKCU "Software\Classes\gitlab-desktop" "GitLabDesktop"
+    ${If} $R2 != ""
+      DeleteRegKey HKCU "Software\Classes\gitlab-desktop"
+    ${EndIf}
+    ReadRegStr $R2 HKCU "Software\Classes\x-github-client" "GitLabDesktop"
+    ${If} $R2 != ""
+      DeleteRegKey HKCU "Software\Classes\x-github-client"
+    ${EndIf}
+    ReadRegStr $R2 HKCU "Software\Microsoft\Windows\Shell\Associations\UrlAssociations\x-github-client\UserChoice" "ProgId"
+    ${If} $R2 == "GitLabDesktop.Link"
+      DeleteRegKey HKCU "Software\Microsoft\Windows\Shell\Associations\UrlAssociations\x-github-client\UserChoice"
+    ${EndIf}
     System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
   ${EndIf}
 SectionEnd

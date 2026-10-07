@@ -15,6 +15,18 @@ static class WindowPlacement
 
     sealed record Placement(int X, int Y, int Width, int Height, bool Maximized);
 
+    /// <summary>Shows the window in front, restored if it was minimised (for a launch handed over to this copy).</summary>
+    public static void BringToFront(Window window)
+    {
+        if (window.Handler?.PlatformView is not Microsoft.UI.Xaml.Window native) return;
+        if (native.AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized } presenter) presenter.Restore();
+        native.Activate();
+        SetForegroundWindow(WinRT.Interop.WindowNative.GetWindowHandle(native));
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    static extern bool SetForegroundWindow(IntPtr window);
+
     public static void Attach(Window window)
     {
         bool attached = false;

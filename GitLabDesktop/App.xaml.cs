@@ -27,6 +27,12 @@ public partial class App : Application
 
 #if WINDOWS
         WinUI.WindowPlacement.Attach(window);
+        // A later launch (an "Open with GitHub Desktop" link, "GitLabDesktop.exe <folder>") comes to this window
+        WinUI.Program.Relaunched += args => MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            WinUI.WindowPlacement.BringToFront(window);
+            await vm.HandleLaunchArgumentsAsync(args);
+        });
 #endif
         window.Created += async (_, _) => await vm.InitializeAsync();
         // Like GitHub Desktop, pick up changes made in other tools whenever the window regains focus.

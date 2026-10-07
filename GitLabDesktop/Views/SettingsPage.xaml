@@ -108,6 +108,22 @@
                     </VerticalStackLayout>
                 </Grid>
 
+                <!-- GitHub's "Open with GitHub Desktop" links (Windows): never taken over without the user choosing -->
+                <VerticalStackLayout Spacing="8" IsVisible="{Binding ShowLinkHandler}">
+                    <BoxView Style="{StaticResource Separator}" Margin="0,8" />
+                    <Label Text="Links from GitHub" Style="{StaticResource SectionHeader}" />
+                    <Label Style="{StaticResource SecondaryText}"
+                           Text="GitHub's &quot;Open with GitHub Desktop&quot; button opens a repository in your desktop git app. GitLab Desktop can open them instead: it opens the repository if you have it, or offers to clone it. Windows lets you choose which app opens these links." />
+                    <Label Text="{Binding LinkHandlerStatus}" />
+                    <FlexLayout Wrap="Wrap">
+                        <Button Text="Make GitLab Desktop the default…" Command="{Binding MakeLinkHandlerDefaultCommand}"
+                                Style="{StaticResource SecondaryButton}" Margin="0,0,8,8"
+                                IsVisible="{Binding IsLinkHandlerDefault, Converter={StaticResource InvertBool}}" />
+                        <Button Text="Stop opening these links" Command="{Binding StopHandlingLinksCommand}"
+                                Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" IsVisible="{Binding IsLinkHandlerRegistered}" />
+                    </FlexLayout>
+                </VerticalStackLayout>
+
                 <BoxView Style="{StaticResource Separator}" Margin="0,8" />
 
                 <Label Text="Updates" Style="{StaticResource SectionHeader}" />

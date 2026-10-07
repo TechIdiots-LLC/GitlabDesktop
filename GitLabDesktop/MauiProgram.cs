@@ -42,6 +42,7 @@ public static class MauiProgram
         services.AddSingleton<AppUpdater>();
         services.AddSingleton<DialogService>();
         services.AddSingleton<PlatformActions>();
+        services.AddSingleton<LinkHandlerRegistration>();
 
         // ── ViewModels ───────────────────────────────────────────────────────
         services.AddSingleton<MainViewModel>();

@@ -194,12 +194,11 @@ public sealed partial class MainViewModel : ObservableObject
         foreach (var r in _settings.Repositories) Repositories.Add(r);
         if (_settings.AutoAddRepositories) await ScanRepositoriesFolderAsync();
 
-        // "GitLabDesktop.exe <folder>" opens that repository, like "github ." for GitHub Desktop.
-        var arg = Environment.GetCommandLineArgs().Skip(1).FirstOrDefault(Directory.Exists);
-        var root = arg is null ? null : await GitRepository.FindRootAsync(_git, Path.GetFullPath(arg));
-        var open = root ?? _settings.LastRepository;
-        if (open is not null && Directory.Exists(open))
-            await OpenRepositoryAsync(open);
+        // "GitLabDesktop.exe <folder>" opens that repository, like "github ." for GitHub Desktop, and an
+        // "Open with GitHub Desktop" link opens (or clones) its repository; otherwise the last one opens again.
+        var handled = await HandleLaunchArgumentsAsync(Environment.GetCommandLineArgs().Skip(1).ToList());
+        var last = _settings.LastRepository;
+        if ((!handled || Repo is null) && last is not null && Directory.Exists(last)) await OpenRepositoryAsync(last);
     }
 
     public void ApplySettings()

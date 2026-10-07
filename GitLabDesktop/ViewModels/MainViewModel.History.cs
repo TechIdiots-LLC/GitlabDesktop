@@ -89,6 +89,9 @@ public sealed partial class MainViewModel
     async Task LoadCommitFilesAsync(CommitInfo? commit)
     {
         CommitFiles = null;
+        // FileChange is a record: the new commit's first file often *equals* the old selection (same path and kind),
+        // and setting an equal value is no change, so its diff would never load. Clearing first makes it one.
+        SelectedCommitFile = null;
         CommitDiffLines = null;
         CommitDiffMessage = null;
         CommitImageDiff = null;

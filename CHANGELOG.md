@@ -8,6 +8,7 @@
 
 ### 🐞 Bug fixes
 - _...Add new stuff here..._
+- In History, the first file of a commit sometimes showed no diff (until another file was picked and then it again), when the previous commit's selected file had the same name and kind of change.
 
 ## 0.5.1
 ### ✨ Features and improvements

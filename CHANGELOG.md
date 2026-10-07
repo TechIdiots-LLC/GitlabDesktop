@@ -8,6 +8,11 @@
 
 ### 🐞 Bug fixes
 - _...Add new stuff here..._
+
+## 0.5.1
+### ✨ Features and improvements
+
+### 🐞 Bug fixes
 - View pull request / merge request opened the list of all requests when there was no GitLab or GitHub account for the server. For a public github.com project it now finds the branch's request without an account; a request from a fork is found too (by the branch's latest commit), also for the toolbar's #12 badge; and when none can be found it opens the requests from that branch rather than all of them. The Pull/Merge requests tab now lists up to 300 open requests instead of 100.
 
 ## 0.5.0
